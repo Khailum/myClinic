@@ -1,0 +1,38 @@
+CREATE TABLE Appointments (
+    AppointmentID INT PRIMARY KEY IDENTITY(1,1),
+    PatientID INT,
+    DoctorID INT, -- Links to StaffDoctors now!
+    AppointmentDate DATETIME,
+    Status VARCHAR(20), -- Scheduled, Completed, Cancelled
+    FOREIGN KEY (PatientID) REFERENCES Patients(PatientID),
+    FOREIGN KEY (DoctorID) REFERENCES StaffDoctors(DoctorID)
+);
+CREATE TABLE StaffDoctors ( 
+    DoctorID INT PRIMARY KEY IDENTITY(1,1),
+    FirstName VARCHAR(100),
+    LastName VARCHAR(100),
+    TypeDoc VARCHAR(50) -- e.g., Cardiologist, General Practitioner
+);
+CREATE TABLE MedicalNotes (
+    NoteID INT PRIMARY KEY IDENTITY(1,1),
+    AppointmentID INT,
+    Note TEXT,
+    DateCreated DATETIME DEFAULT GETDATE(),
+    FOREIGN KEY (AppointmentID) REFERENCES Appointments(AppointmentID)
+);
+CREATE TABLE Patients (
+    PatientID INT PRIMARY KEY IDENTITY(1,1),
+    FirstName VARCHAR(100),
+    LastName VARCHAR(100),
+    DateOfBirth DATE,
+    Gender VARCHAR(10)
+);
+CREATE TABLE Users (
+    UserID INT PRIMARY KEY IDENTITY(1,1),
+    Username VARCHAR(100),
+    FirstName VARCHAR(100),
+    LastName VARCHAR(100),
+    IDNumber NVARCHAR(20),
+    PasswordHash NVARCHAR(256),
+    Role VARCHAR(20) -- 'Receptionist', 'Doctor', 'Admin'
+);
