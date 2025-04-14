@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
@@ -14,8 +14,8 @@ namespace Myclinic
       
         public static void LoginDoc()
         {
-            bool repeat = true;
-            while (repeat)
+            bool repeatDO = true;
+            while (repeatDO)
             {
 
 
@@ -32,9 +32,11 @@ namespace Myclinic
                     cmd.Parameters.AddWithValue("@password", password);
                     cmd.Parameters.AddWithValue("@Doctor", "Doctor");
                     int results = (int)cmd.ExecuteScalar();
-                    if (results > 1)
+                    Connection.Close(); 
+                    if (results > 0)
                     {
                         Console.WriteLine("You are now logged in");
+                        break;
                     }
                     else
                     {
@@ -42,7 +44,7 @@ namespace Myclinic
                         int answer1 = int.Parse(Console.ReadLine());
                         if (answer1 == 1)
                         {
-                            repeat = true;
+                            repeatDO = true;
                         }
                         else if (answer1 == 2)
                         {
@@ -55,10 +57,11 @@ namespace Myclinic
         }
         public static void LoginRec()
         {
-            bool repeat = true;
-            using SqlConnection Connection = new SqlConnection(receptanist.connection);
+            bool repeatRE = true;
+
+            while (repeatRE)
             {
-                while (repeat)
+                using SqlConnection Connection = new SqlConnection(receptanist.connection);
                 {
                     Connection.Open();
                     Console.WriteLine("Enter your Username");
@@ -71,9 +74,10 @@ namespace Myclinic
                     cmd.Parameters.AddWithValue("@password", password);
                     cmd.Parameters.AddWithValue("@Receptionsit", "receptionsit");
                     int results = (int)cmd.ExecuteScalar();
-                    if (results > 1)
+                    if (results > 0)
                     {
                         Console.WriteLine("You are now logged in");
+                        repeatRE = false;
                     }
                     else
                     {
@@ -81,7 +85,7 @@ namespace Myclinic
                         int answer1 = int.Parse(Console.ReadLine());
                         if (answer1 == 1)
                         {
-                            repeat = true;
+                            repeatRE = true;
                         }
                         else if (answer1 == 2)
                         {
@@ -94,9 +98,9 @@ namespace Myclinic
         }
         public static void LoginAdmin()
         {
-            bool repeat = true;
+            bool repeatAD = true;
             using SqlConnection Connection = new SqlConnection(receptanist.connection);
-            while (repeat)
+            while (repeatAD)
             {
                 Console.WriteLine("Enter your Username");
                 string username = Console.ReadLine();
@@ -108,7 +112,7 @@ namespace Myclinic
                 cmd.Parameters.AddWithValue("@password", password);
                 cmd.Parameters.AddWithValue("@Admin", "Admin");
                 int results = (int)cmd.ExecuteScalar();
-                if (results > 1)
+                if (results > 0)
                 {
                     Console.WriteLine("You are now logged in");
                 }
@@ -118,7 +122,7 @@ namespace Myclinic
                     int answer1 = int.Parse(Console.ReadLine());
                     if (answer1 == 1)
                     {
-                        repeat = true;
+                        repeatAD = true;
                     }
                     else if (answer1 == 2)
                     {
