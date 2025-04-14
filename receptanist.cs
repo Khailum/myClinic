@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -21,28 +21,32 @@ namespace Myclinic
 
         public static void RegisterPatinet()
         {
-            using SqlConnection Connection = new SqlConnection(connection);
-            bool repeat = true;
-            while (repeat)
-            try
-            {              
-                Connection.Open();
-                Console.WriteLine("Enter Patient First name");
-                string PFname = Console.ReadLine();
-                Console.WriteLine("Enter Patient Last name");
-                string PLname = Console.ReadLine();
-                Console.WriteLine("Patient Age");
-                int Age = int.Parse(Console.ReadLine());
-                Console.WriteLine("Patient Gender");
-                string gender = Console.ReadLine();
-                    while (repeat)
+
+            bool repeat2 = true;
+            while (repeat2)
+            {
+                using SqlConnection Connection = new SqlConnection(connection);
+                {
+
+                    try
                     {
+                        Connection.Open();
+                        Console.WriteLine("Enter Patient First name");
+                        string PFname = Console.ReadLine();
+                        Console.WriteLine("Enter Patient Last name");
+                        string PLname = Console.ReadLine();
+                        Console.WriteLine("Patient Age");
+                        int Age = int.Parse(Console.ReadLine());
+                        Console.WriteLine("Patient Gender");
+                        string gender = Console.ReadLine();
+                       
                         Console.WriteLine("Patient ID number");
                         ID = Console.ReadLine();
                         if (ID.Length != 13)
-                        {
-                            Console.WriteLine("Invalid Identity number");
-                        }
+                          {
+                            Console.WriteLine("Invalid Identity number.Try Again");
+                            repeat2 = true;
+                          }
 
                         else
                         {
@@ -54,113 +58,123 @@ namespace Myclinic
                             cmd.Parameters.AddWithValue("@gender", gender);
                             cmd.Parameters.AddWithValue("@IDnumber", ID);
                             cmd.ExecuteNonQuery();
-                            Connection.Close();
+                            Console.WriteLine("Patient Successfully Registred.");
+                            repeat2=false;
+                                
                         }
+                        
                     }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.Message);
-            }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.Message);
+                    }
+                }
 
-            //Show Patinet ID//
+                //Show Patinet ID//
+            }
         }
         public static void BookAppointment()
         {
-            bool repeat = true;
-            while (repeat)
+            bool repeat3 = true;
+            while (repeat3)
             {
                 using SqlConnection Connection = new SqlConnection(connection);
-                try
                 {
-                    Console.WriteLine("Here Are All our Doctors");
-                    Connection.Open();
-                    //Console.WriteLine("Enter Doctors ID");
-                    //int DoctorsID = int.Parse(Console.ReadLine());
-                    //Console.Clear();
-                    string DoctorsAppoint = "select * from Doctors";
-                    SqlCommand commamd = new SqlCommand(DoctorsAppoint, Connection);                   
-                    SqlDataReader reader1 = commamd.ExecuteReader();
-
-
-                    while (reader1.Read())
+                    try
                     {
-                        int DoctorID = reader1.GetInt32(0);
-                        string FirstName = reader1.GetString(1);
-                        string LastName = reader1.GetString(2);
-                        string Speciality = reader1.GetString(3);                                              
-                        Console.WriteLine($"DoctorID:{DoctorID} FirstName:{FirstName} LastName:{LastName} Speciality:{Speciality}");
-                        Console.WriteLine("");
-                        repeat = false;
-                    }
+                        Console.WriteLine("Here Are All our Doctors");
+                        Connection.Open();
+                        //Console.WriteLine("Enter Doctors ID");
+                        //int DoctorsID = int.Parse(Console.ReadLine());
+                        //Console.Clear();
+                        string DoctorsAppoint = "select * from Doctors";
+                        SqlCommand commamd = new SqlCommand(DoctorsAppoint, Connection);
+                        SqlDataReader reader1 = commamd.ExecuteReader();
 
 
-                    reader1.Close();
-                    Console.WriteLine("What is the Patient ID number");
-                    string PatientID = Console.ReadLine();
-                    string PatientCount = "select count (*) from Patients where IDnumber=@IDnumber";
-                    SqlCommand Pcount = new SqlCommand(PatientCount, Connection);
-                    Pcount.Parameters.AddWithValue("@IDnumber", PatientID);
-                    int count=(int)Pcount.ExecuteScalar();
-
-                    if (count > 0)
-                    {
-                        Console.WriteLine("The reason for the appoitment");
-                        string Reason = Console.ReadLine();
-                        Console.WriteLine("Doctor to be assigned (DoctorID)");
-                        string DoctorID = Console.ReadLine();
-                        Console.WriteLine("Date for the appointment and time (YYYY/MM/DD HH:MM:SS)");
-                        DateTime Date = DateTime.Parse(Console.ReadLine());
-                        if (Date <= DateTime.Now)
+                        while (reader1.Read())
                         {
-                            Console.WriteLine("You cannot book an appointment in past");
+                            int DoctorID = reader1.GetInt32(0);
+                            string FirstName = reader1.GetString(1);
+                            string LastName = reader1.GetString(2);
+                            string Speciality = reader1.GetString(3);
+                            Console.WriteLine($"DoctorID:{DoctorID} FirstName:{FirstName} LastName:{LastName} Speciality:{Speciality}");
+                            Console.WriteLine("");
+                            repeat3 = false;
+                        }
+
+
+                        reader1.Close();
+                        Console.WriteLine("What is the Patient ID number");
+                        string PatientID = Console.ReadLine();
+                        string PatientCount = "select count (*) from Patients where IDnumber=@IDnumber";
+                        SqlCommand Pcount = new SqlCommand(PatientCount, Connection);
+                        Pcount.Parameters.AddWithValue("@IDnumber", PatientID);
+                        int count = (int)Pcount.ExecuteScalar();
+
+                        if (count > 0)
+                        {
+                            Console.WriteLine("The reason for the appoitment");
+                            string Reason = Console.ReadLine();
+                            Console.WriteLine("Doctor to be assigned (DoctorID)");
+                            string DoctorID = Console.ReadLine();
+                            Console.WriteLine("Date for the appointment and time (YYYY/MM/DD HH:MM:SS)");
+                            DateTime Date = DateTime.Parse(Console.ReadLine());
+                            if (Date <= DateTime.Now)
+                            {
+                                Console.WriteLine("You cannot book an appointment in past.Try Again");
+                                Thread.Sleep(2000);
+                                Console.Clear();
+                                repeat3 = true;
+                            }
+                           // feb validation//
+                            else
+                            {
+
+
+                                Console.WriteLine("");
+                                string Datecount = "select count(*) from Appointments where AppointmentDateTime=@Date and DoctorID=@DoctorID";
+                                SqlCommand cmd = new SqlCommand(Datecount, Connection);
+                                cmd.Parameters.AddWithValue("@Date", Date);
+                                cmd.Parameters.AddWithValue("@DoctorID", DoctorID);
+                                int result3 = (int)cmd.ExecuteScalar();
+                                Console.WriteLine(result3);
+
+                                if (result3 > 0)
+                                {
+                                    Console.WriteLine("The Date has been already occupeid.Please choose another date. Try Another Date");
+                                    Thread.Sleep(2500);
+                                    Console.Clear();
+                                    repeat3 = true;
+                                }
+
+                                else
+                                {
+                                    string update = "insert into Appointments values(@IDnumber,@DoctorID,@Reason,@AppointmentDateTime,@status)";
+                                    SqlCommand Comd = new SqlCommand(update, Connection);
+                                    Comd.Parameters.AddWithValue("@IDnumber", PatientID);
+                                    Comd.Parameters.AddWithValue("@DoctorID", DoctorID);
+                                    Comd.Parameters.AddWithValue("@Reason", Reason);
+                                    Comd.Parameters.AddWithValue("@AppointmentDateTime", Date);
+                                    Comd.Parameters.AddWithValue("@Status", "Scheduled");
+                                    Comd.ExecuteNonQuery();
+                                    Console.WriteLine("Appointment successful");
+                                    repeat3 = false;
+
+                                }
+                            }
                         }
                         else
                         {
-
-
-                            Console.WriteLine("");
-                            string Datecount = "select count(*) from Appointments where AppointmentDateTime=@Date and DoctorID=@DoctorID";
-                            SqlCommand cmd = new SqlCommand(Datecount, Connection);
-                            cmd.Parameters.AddWithValue("@Date", Date);
-                            cmd.Parameters.AddWithValue("@DoctorID", DoctorID);
-                            int result3 = (int)cmd.ExecuteScalar();
-                            Console.WriteLine(result3);
-
-                            if (result3 > 0)
-                            {
-                                Console.WriteLine("The Date has been already occupeid.Please choose another date. Try Another Date");
-                                Thread.Sleep(2500);
-                                Console.Clear();
-                                repeat = true;
-                            }
-
-                            else
-                            {
-                                string update = "insert into Appointments values(@IDnumber,@DoctorID,@Reason,@AppointmentDateTime,@status)";
-                                SqlCommand Comd = new SqlCommand(update, Connection);
-                                Comd.Parameters.AddWithValue("@IDnumber", PatientID);
-                                Comd.Parameters.AddWithValue("@DoctorID", DoctorID);
-                                Comd.Parameters.AddWithValue("@Reason", Reason);
-                                Comd.Parameters.AddWithValue("@AppointmentDateTime", Date);
-                                Comd.Parameters.AddWithValue("@Status", "Scheduled");
-                                Comd.ExecuteNonQuery();
-                                Console.WriteLine("Appointment successful");
-                                repeat = false;
-
-                            }
+                            Console.WriteLine("Patinet ID number is Incorrect.Try Again");
+                            repeat3 = true;
                         }
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        Console.WriteLine("Patinet ID number is Incorrect.Try Again");
-                        repeat = true;
+                        Console.WriteLine(ex.Message);
+                        repeat3 = true;
                     }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
-                    repeat = true;
                 }
             }
         }
@@ -189,7 +203,9 @@ namespace Myclinic
                         string Status = reader.IsDBNull(5) ? "N/A" : reader.GetString(5);
                         Console.WriteLine($"AppointmentID:{AppointmentID}\nIDnumber:{IDnumber}\nDoctorID:{DoctorID}\nReason:{Reason}\nAppointmentDate:{AppointmentDate}\nStatus:{Status}");
                         Console.WriteLine("");
+                        
                     }
+                    Console.ReadKey();
                     break;
                 case 2:
                     Console.WriteLine("Enter Doctors ID");
@@ -210,8 +226,10 @@ namespace Myclinic
                         Console.WriteLine($"AppointmentID:{AppointmentID}\nIDnumber:{IDnumber}\nDoctorID:{DoctorID}\nReason:{Reason}\nAppointmentDate:{AppointmentDate}\nStatus:{Status}");
                         Console.WriteLine("");
                     }
-
+                    Console.ReadKey();
                     break;
+                    
+
                 case 3:
                     Console.WriteLine("Enter Patient IDnumber");
                     string PatientID =Console.ReadLine();
@@ -231,7 +249,9 @@ namespace Myclinic
                         Console.WriteLine($"AppointmentID:{AppointmentID}\nIDnumber:{PatientID}\nDoctorID:{DoctorID}\nReason:{Reason}\nAppointmentDate:{AppointmentDate}\nStatus:{Status}");
                         Console.WriteLine("");
                     }
+                    Console.ReadKey();
                     break;
+                    
                 case 4:
                     Environment.Exit(0);
                     break;
@@ -245,7 +265,7 @@ namespace Myclinic
             {
                 try
                 {
-
+                    bool repeatUP = true;
                     Connection.Open();
                     while (repeat1)
                     {
@@ -277,7 +297,7 @@ namespace Myclinic
                                         if (result2 > 0)
                                         {
                                             Console.WriteLine("The Date has been already occupeid.Please choose another date");
-                                            repeat = true;
+                                            repeatUP = true;
                                         }                                       
 
                                         else 
@@ -289,7 +309,7 @@ namespace Myclinic
                                             Comd.Parameters.AddWithValue("@UpdatedDate", UPDateTime);
                                             Comd.ExecuteNonQuery();
                                             Console.WriteLine("Update successful");
-                                            repeat = false;
+                                            Program.repeat1 = true;
 
                                         }
                                     }
@@ -301,7 +321,7 @@ namespace Myclinic
                         {
                             Console.WriteLine("Invalid AppoitnmentID.Try Again");
                             Thread.Sleep(3000);
-                            repeat1 = true;
+                            repeatUP = true;
                         }
                     }
                 }
