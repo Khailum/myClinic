@@ -14,19 +14,45 @@ namespace myClinic
             _connection = connection;
         }
 
-        public int ProfileCreate()
+        public int CreateNewProfile()
         {
             Console.Clear();
             Console.WriteLine("Thank you for choosing to create a profile with us!");
 
-            Console.Write("Enter your username: ");
-            string username = Console.ReadLine()?.Trim();
+            string username = GetUsername();
             if (string.IsNullOrWhiteSpace(username))
             {
                 Console.WriteLine("Username cannot be empty.");
                 return -1;
             }
 
+            string pin = GetPin();
+            if (pin == null) return -1;
+
+            string role = GetRole();
+            if (role == null) return -1;
+
+            string hashedPin = Password.HashPassword(pin);
+            int userId = InsertProfileToDatabase(username, hashedPin, role);
+
+            if (userId > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"\n{role} profile created successfully!");
+                Console.ResetColor();
+            }
+
+            return userId;
+        }
+
+        private string GetUsername()
+        {
+            Console.Write("Enter your username: ");
+            return Console.ReadLine()?.Trim();
+        }
+
+        private string GetPin()
+        {
             Console.Write("\nEnter your 4-digit PIN: ");
             string pin = ReadPassword();
 
@@ -35,36 +61,35 @@ namespace myClinic
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("\nInvalid PIN. Please enter a 4-digit number.");
                 Console.ResetColor();
-                return -1;
+                return null;
             }
 
-            // Ask the user what role they want to create
+            return pin;
+        }
+
+        private string GetRole()
+        {
             Console.WriteLine("\nSelect Role:");
             Console.WriteLine("1. Receptionist");
             Console.WriteLine("2. Doctor");
             Console.Write("Enter your choice (1 or 2): ");
             string roleChoice = Console.ReadLine()?.Trim();
 
-            string role;
-            if (roleChoice == "1")
+            switch (roleChoice)
             {
-                role = "Receptionist";
+                case "1": return "Receptionist";
+                case "2": return "Doctor";
+                default:
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("\nInvalid role selected.");
+                    Console.ResetColor();
+                    return null;
             }
-            else if (roleChoice == "2")
-            {
-                role = "Doctor";
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("\nInvalid role selected.");
-                Console.ResetColor();
-                return -1;
-            }
+        }
 
-            string hashedPin = HashPassword(pin);
-
-            string insertProfileQuery = "INSERT INTO Users (Username, PasswordHash, Role) VALUES (@Username, @PasswordHash, @Role)";
+        private int InsertProfileToDatabase(string username, string hashedPin, string role)
+        {
+            string insertProfileQuery = "INSERT INTO Users (Username, PasswordHash, Role) OUTPUT INSERTED.UserID VALUES (@Username, @PasswordHash, @Role)";
 
             using (SqlCommand cmd = new SqlCommand(insertProfileQuery, _connection))
             {
@@ -72,14 +97,8 @@ namespace myClinic
                 cmd.Parameters.AddWithValue("@PasswordHash", hashedPin);
                 cmd.Parameters.AddWithValue("@Role", role);
 
-                cmd.ExecuteNonQuery();
+                return (int)cmd.ExecuteScalar();  // Get the inserted UserID
             }
-
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"\n{role} profile created successfully!");
-            Console.ResetColor();
-
-            return 1;
         }
 
         private string ReadPassword()
@@ -105,20 +124,6 @@ namespace myClinic
 
             Console.WriteLine();
             return password.ToString();
-        }
-
-        private string HashPassword(string password)
-        {
-            using (SHA256 sha256 = SHA256.Create())
-            {
-                byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-                StringBuilder builder = new StringBuilder();
-                foreach (byte b in bytes)
-                {
-                    builder.Append(b.ToString("x2"));
-                }
-                return builder.ToString();
-            }
         }
     }
 }
