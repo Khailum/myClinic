@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -135,8 +135,8 @@ namespace Myclinic
             Connection.Open();
             try
             {
-                bool repeat = true;
-                while (repeat)
+                bool repeatDE = true;
+                while (repeatDE)
 
                 {                  
 
@@ -181,7 +181,7 @@ namespace Myclinic
                         }
                         else if(asnwer == 2)
                         {
-                            repeat = true;
+                            repeatDE = true;
                         }
                         
 
@@ -190,7 +190,7 @@ namespace Myclinic
                     {
                         Console.WriteLine("The User Id is ont Valid Please try again");
                         Thread.Sleep(3000);
-                        repeat = true;
+                        repeatDE = true;
 
                     }
                 }
