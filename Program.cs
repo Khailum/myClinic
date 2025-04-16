@@ -4,20 +4,44 @@ using myClinic;
 
 namespace MyApp
 {
-    internal class Program
+    public static class Program
     {
-        public static string ConnectionString = @"Data Source=DESKTOP-O7AMP6F;Initial Catalog=PMSmyClinic;Integrated Security=True;Trust Server Certificate=True;encrypt=false";
+        private static string ConnectionString = @"Data Source=ACADEMICWEAPON;Initial Catalog=PMSmyClinic;Integrated Security=True;Trust Server Certificate=True;Encrypt=False";
 
         static void Main(string[] args)
         {
+            // Display the logo
+            Logo.Display();
+
+            // Show loading screen while connecting to the database
+            Logo.ShowLoading();
+
             try
             {
                 using (SqlConnection connection = new SqlConnection(ConnectionString))
                 {
                     connection.Open();
-                    Console.WriteLine("---- Welcome to myClinic! ----");
+                }
 
+                Admin.Initialize(ConnectionString);
+
+                bool running = true;
+
+                while (running)
+                {
                     HandleUserLogin();
+
+                    Console.WriteLine("\nWould you like to:");
+                    Console.WriteLine("1. Return to login screen");
+                    Console.WriteLine("2. Exit the application");
+                    Console.Write("Enter your choice: ");
+                    string input = Console.ReadLine();
+
+                    if (input != "1")
+                    {
+                        running = false;
+                        Console.WriteLine("Goodbye!");
+                    }
                 }
             }
             catch (SqlException ex)
@@ -25,14 +49,21 @@ namespace MyApp
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine($"An error occurred while connecting to the database: {ex.Message}");
                 Console.ResetColor();
+                Environment.Exit(0); // Exit if database is unavailable
             }
         }
 
-        static void HandleUserLogin()
+        public static void HandleUserLogin()
         {
-            bool validLogin = false;
+            Logo.Display();
 
-            while (!validLogin)
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("---- Welcome to myClinic! ----");
+            Console.ResetColor();
+            bool validLogin = false;
+            int attempts = 0;
+
+            while (!validLogin && attempts < 3)
             {
                 Console.WriteLine("\nHi!\nAre you signing in as:");
                 Console.WriteLine("1. Receptionist");
@@ -46,29 +77,43 @@ namespace MyApp
                     switch (position)
                     {
                         case 1:
+                            Console.Clear();
+                            Logo.Display();
                             GreetUser("Receptionist");
-                            Login.LoginRec(); 
+                            Login.LoginRec();
                             validLogin = true;
                             break;
                         case 2:
+                            Console.Clear();
+                            Logo.Display();
                             GreetUser("Doctor");
-                            new Login().LoginDoctor();
+                            Login.LoginDoctor();
                             validLogin = true;
                             break;
                         case 3:
+                            Console.Clear();
+                            Logo.Display();
                             GreetUser("Admin");
                             Login.LoginAdmin();
                             validLogin = true;
                             break;
                         default:
                             InvalidChoice();
+                            attempts++;
                             break;
                     }
                 }
                 else
                 {
                     InvalidChoice();
+                    attempts++;
                 }
+            }
+
+            if (!validLogin)
+            {
+                Console.WriteLine("Too many failed attempts. Exiting...");
+                Environment.Exit(0);
             }
         }
 

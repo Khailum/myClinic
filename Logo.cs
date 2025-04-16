@@ -28,14 +28,14 @@ namespace myClinic
         }
         public static void ShowLoading()
         {
+            Console.ForegroundColor = ConsoleColor.Cyan;
             for (int i = 0; i < 5; i++)
             {
                 Console.Write(".");
                 Thread.Sleep(400);
             }
-
+            Console.ResetColor ();
             Console.Clear();
-            Console.WriteLine("Thank you for waiting!");
         }
 
     }

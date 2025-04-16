@@ -19,21 +19,74 @@ namespace myClinic
             Console.Clear();
             Console.WriteLine("Thank you for choosing to create a profile with us!");
 
-            string username = GetUsername();
+            Console.Write("Enter your username: ");
+            string username = Console.ReadLine()?.Trim();
+
             if (string.IsNullOrWhiteSpace(username))
             {
                 Console.WriteLine("Username cannot be empty.");
                 return -1;
             }
 
-            string pin = GetPin();
-            if (pin == null) return -1;
+            Console.Write("\nEnter your 4-digit PIN: ");
+            StringBuilder password = new StringBuilder();
+            ConsoleKeyInfo key;
+            do
+            {
+                key = Console.ReadKey(intercept: true);
+                if (key.Key == ConsoleKey.Backspace && password.Length > 0)
+                {
+                    password.Remove(password.Length - 1, 1);
+                    Console.Write("\b \b");
+                }
+                else if (!char.IsControl(key.KeyChar))
+                {
+                    password.Append(key.KeyChar);
+                    Console.Write("*");
+                }
+            } while (key.Key != ConsoleKey.Enter);
+            Console.WriteLine();
 
-            string role = GetRole();
-            if (role == null) return -1;
+            string pin = password.ToString();
+
+            if (pin.Length != 4 || !pin.All(char.IsDigit))
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Invalid PIN. Please enter a 4-digit number.");
+                Console.ResetColor();
+                return -1;
+            }
+
+            Console.WriteLine("\nSelect Role:");
+            Console.WriteLine("1. Receptionist");
+            Console.WriteLine("2. Doctor");
+            Console.Write("Enter your choice (1 or 2): ");
+            string roleChoice = Console.ReadLine()?.Trim();
+            string role = null;
+
+            if (roleChoice == "1") role = "Receptionist";
+            else if (roleChoice == "2") role = "Doctor";
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Invalid role selected.");
+                Console.ResetColor();
+                return -1;
+            }
 
             string hashedPin = Password.HashPassword(pin);
-            int userId = InsertProfileToDatabase(username, hashedPin, role);
+
+            string insertQuery = "INSERT INTO Users (Username, PasswordHash, Role) OUTPUT INSERTED.UserID VALUES (@Username, @PasswordHash, @Role)";
+            int userId;
+
+            using (SqlCommand cmd = new SqlCommand(insertQuery, _connection))
+            {
+                cmd.Parameters.AddWithValue("@Username", username);
+                cmd.Parameters.AddWithValue("@PasswordHash", hashedPin);
+                cmd.Parameters.AddWithValue("@Role", role);
+
+                userId = (int)cmd.ExecuteScalar();
+            }
 
             if (userId > 0)
             {

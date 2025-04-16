@@ -1,275 +1,429 @@
 ﻿using System;
 using Microsoft.Data.SqlClient;
+using Spectre.Console;
 
 namespace myClinic
 {
     public class Doctor
     {
-        public static readonly SqlConnection _connection;
-        public static readonly int _doctorId;
-        public static void ShowDoctorMenu()
+        private static string _doctorFullName;
+        private static int _doctorId;
+        private static string _connectionString;
+        public static bool Initialize(string connectionString, int userId)
         {
-            Console.WriteLine("Welcome Doctor!");
-            Console.WriteLine("1. View your appointments for today:");
-            Console.WriteLine("2. Add Medical Note:");
-            Console.WriteLine("3. View Patient History:");
-            Console.WriteLine("4. Exit:");
-            Console.Write("Select an option: ");
-            if (!int.TryParse(Console.ReadLine(), out int option))
-            {
-                Console.WriteLine("Invalid option. Please enter a number between 1-4.");
-            }
-            switch (option)
-            {
-                case 1:
-                    ViewTodaysAppointments();
-                    break;
-                case 2:
-                    Console.WriteLine("What would you like to do?");
-                    Console.WriteLine("1. Add Medical Note");
-                    Console.WriteLine("2. View Most Recent Medical Note");
-                    Console.Write("Enter your choice (1-2): ");
-                    string choice = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(connectionString))
+                throw new ArgumentNullException(nameof(connectionString), "Connection string cannot be null or empty.");
 
-                    switch (choice)
-                    {
-                        case "1":
-                            AddMedicalNote();
-                            break;
-                        case "2":
-                            ViewMostRecentMedicalNote();
-                            break;
-                        default:
-                            Console.WriteLine("Invalid choice. Please select 1 or 2.");
-                            break;
-                    }
-                    break;
-                case 3:
-                    ViewPatientHistory();
-                    break;
-                case 4:
-                    break;
-                default:
-                    Console.WriteLine("Invalid option.");
-                    break;
+            if (userId <= 0)
+                throw new ArgumentException("Invalid UserID. It must be greater than zero.");
+
+            _connectionString = connectionString;
+
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                connection.Open();
+
+                Console.WriteLine($"Initializing Doctor for UserID: {userId}");
+
+                // Fetch the DoctorID associated with this user
+                _doctorId = GetDoctorIdFromUser(userId, connection);
+
+                if (_doctorId <= 0)
+                {
+                    Console.WriteLine($"No doctor found linked to UserID: {userId}. Ensure the user is a valid doctor.");
+                    return false;
+                }
+
+                // Fetch the Doctor's full name
+                _doctorFullName = GetDoctorFullName(_doctorId, connection);
+
+                if (string.IsNullOrEmpty(_doctorFullName))
+                {
+                    Console.WriteLine($"Doctor with ID {_doctorId} does not have a full name. Please check the database.");
+                    return false;
+                }
+
+                Console.WriteLine($"Doctor found with ID: {_doctorId}");
+                Console.WriteLine($"Doctor Name: {_doctorFullName}");
+
+                return true;
+            }
+            catch (SqlException sqlEx)
+            {
+                Console.WriteLine($"SQL Error: {sqlEx.Message}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Unexpected Error: {ex.Message}");
+                return false;
             }
         }
 
-        public static void ViewTodaysAppointments()
+        // Helper method to fetch doctor ID from the user
+        private static int GetDoctorIdFromUser(int userId, SqlConnection connection)
         {
             string query = @"
-                        SELECT 
-                            a.AppointmentID, 
-                            p.FirstName, 
-                            p.LastName, 
-                            a.AppointmentDate, 
-                            a.Status
-                        FROM Appointments a
-                        INNER JOIN Patients p ON a.PatientIDNumber = p.IDNumber
-                        WHERE a.DoctorID = @DoctorID
-                        AND CAST(a.AppointmentDate AS DATE) = CAST(GETDATE() AS DATE)
-                        ORDER BY a.AppointmentDate;
-                    ";
+            SELECT sd.DoctorID 
+            FROM Users u
+            INNER JOIN StaffDoctors sd ON u.DoctorID = sd.DoctorID
+            WHERE u.UserID = @UserID AND u.Role = 'Doctor';";
 
-            using (SqlCommand cmd = new SqlCommand(query, _connection))
-            {
-                cmd.Parameters.AddWithValue("@DoctorID", _doctorId);
+            using var cmd = new SqlCommand(query, connection);
+            cmd.Parameters.AddWithValue("@UserID", userId);
 
-                using (SqlDataReader reader = cmd.ExecuteReader())
-                {
-                    Console.Clear();
-                    if (reader.HasRows)
-                    {
-                        Console.WriteLine("=============================================");
-                        Console.WriteLine("                   myClinic                  ");
-                        Console.WriteLine("=============================================");
-                        Console.WriteLine("| Appointment ID | Patient Name     | Time   | Status  |");
-                        Console.WriteLine("-------------------------------------------------------------");
-
-                        while (reader.Read())
-                        {
-                            int appointmentId = reader.GetInt32(0);
-                            string patientFirstName = reader.GetString(1);
-                            string patientLastName = reader.GetString(2);
-                            DateTime appointmentDate = reader.GetDateTime(3);
-                            string status = reader.GetString(4);
-
-                            Console.WriteLine($"| {appointmentId,-15} | {patientFirstName} {patientLastName,-13} | {appointmentDate:HH:mm} | {status,-7} |");
-                            Console.WriteLine("-------------------------------------------------------------");
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine("\nNo appointments scheduled for today.");
-                    }
-                }
-            }
+            var result = cmd.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
         }
 
-        public static void AddMedicalNote()
+        // Helper method to fetch full name of the doctor
+        private static string GetDoctorFullName(int doctorId, SqlConnection connection)
         {
-            Console.WriteLine("Enter Appointment ID:");
-            if (!int.TryParse(Console.ReadLine(), out int appointmentId))
+            string query = "SELECT FirstName, LastName FROM StaffDoctors WHERE DoctorID = @DoctorID";
+
+            using var cmd = new SqlCommand(query, connection);
+            cmd.Parameters.AddWithValue("@DoctorID", doctorId);
+
+            using var reader = cmd.ExecuteReader();
+            if (reader.Read())
             {
-                Console.WriteLine("Invalid Appointment ID.");
+                string firstName = reader["FirstName"].ToString();
+                string lastName = reader["LastName"].ToString();
+                return $"{firstName} {lastName}";
+            }
+
+            return null; // Return null if no record is found
+        }
+
+        public static void ShowDoctorMenu()
+        {
+            if (string.IsNullOrEmpty(_connectionString))
+
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Error: Connection string not initialized.");
+                Console.ResetColor();   
                 return;
             }
 
-            Console.Write("Enter Diagnosis: ");
-            string diagnosis = Console.ReadLine()?.Trim();
-
-            Console.Write("Enter Symptoms: ");
-            string symptoms = Console.ReadLine()?.Trim();
-
-            Console.Write("Enter Treatment Plan: ");
-            string treatmentPlan = Console.ReadLine()?.Trim();
-
-            // Validation
-            if (string.IsNullOrWhiteSpace(diagnosis) ||
-                string.IsNullOrWhiteSpace(symptoms) ||
-                string.IsNullOrWhiteSpace(treatmentPlan))
+            if (_doctorId <= 0 || string.IsNullOrEmpty(_doctorFullName))
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("\nAll fields must be filled in.");
+                Console.WriteLine("Error: Doctor is not properly initialized.");
                 Console.ResetColor();
                 return;
             }
 
-            string query = @"
-        INSERT INTO MedicalNotes 
-        (AppointmentID, Diagnosis, Symptoms, TreatmentPlan)
-        VALUES 
-        (@AppointmentID, @Diagnosis, @Symptoms, @TreatmentPlan);
-    ";
+            bool keepRunning = true;
 
-            using (SqlCommand cmd = new SqlCommand(query, _connection))
+            while (keepRunning)
             {
-                cmd.Parameters.AddWithValue("@AppointmentID", appointmentId);
-                cmd.Parameters.AddWithValue("@Diagnosis", diagnosis);
-                cmd.Parameters.AddWithValue("@Symptoms", symptoms);
-                cmd.Parameters.AddWithValue("@TreatmentPlan", treatmentPlan);
+                Console.Clear();
+                Logo.Display();
+                Console.WriteLine();
+                AnsiConsole.Write(new Rule($"[Blue]=== Welcome Dr. {_doctorFullName}! ===[/]").RuleStyle("blue").Centered());
 
+                Console.WriteLine("1. View upcoming appointments");
+                Console.WriteLine("2. Medical Notes");
+                Console.WriteLine("3. View Patient History");
+                Console.WriteLine("4. Exit");
+
+                Console.Write("Select an option (1-4): ");
+                if (!int.TryParse(Console.ReadLine(), out int option))
+                {
+                    Console.WriteLine("Invalid input. Please enter a number between 1 and 4.");
+                    WaitForInput();
+                    continue;
+                }
+
+                switch (option)
+                {
+                    case 1:
+                        ViewUpcomingAppointments();
+                        break;
+                    case 2:
+                        ShowMedicalNoteMenu();
+                        break;
+                    case 3:
+                        ViewPatientHistory();
+                        break;
+                    case 4:
+                        Console.WriteLine("Exiting Doctor Menu...");
+                        keepRunning = false;
+                        break;
+                    default:
+                        Console.WriteLine("Invalid option. Please select a number between 1 and 4.");
+                        break;
+                }
+
+                if (keepRunning)
+                    WaitForInput();
+            }
+        }
+
+        private static void ShowMedicalNoteMenu()
+        {
+            Console.Clear();
+            Console.WriteLine("\n--- Medical Notes ---");
+            Console.WriteLine("1. Add Medical Note");
+            Console.WriteLine("2. View Most Recent Medical Note");
+            Console.Write("Enter your choice (1 or 2): ");
+            string choice = Console.ReadLine()?.Trim();
+
+            switch (choice)
+            {
+                case "1":
+                    AddMedicalNote();
+                    break;
+                case "2":
+                    ViewMostRecentMedicalNote();
+                    break;
+                default:
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("Invalid choice. Please enter 1 or 2.");
+                    Console.ResetColor();
+                    break;
+            }
+        }
+
+        private static void ViewUpcomingAppointments()
+        {
+            if (!EnsureInitialized()) return;
+
+            string query = @"
+        SELECT a.AppointmentID, p.FirstName, p.LastName, a.AppointmentDate, a.Status
+        FROM Appointments a
+        INNER JOIN Patients p ON a.PatientIDNumber = p.IDNumber
+        WHERE a.DoctorID = @DoctorID
+        AND CAST(a.AppointmentDate AS DATE) >= CAST(GETDATE() AS DATE)
+        ORDER BY a.AppointmentDate;";
+
+            try
+            {
+                using var connection = CreateConnection();
+                connection.Open();
+                using var cmd = CreateCommand(query, connection);
+                AddParameter(cmd, "@DoctorID", _doctorId);
+
+                using var reader = cmd.ExecuteReader();
+                Console.Clear();
+                if (reader.HasRows)
+                {
+                    Console.WriteLine("=== Upcoming Appointments (From Today) ===");
+                    // Adjust column widths for proper alignment
+                    Console.WriteLine("| {0,-4} | {1,-15} | {2,-10} | {3,-5} | {4,-10} |",
+                                      "ID", "Patient Name", "Date", "Time", "Status");
+
+                    while (reader.Read())
+                    {
+                        var appointmentDate = reader.GetDateTime(3);
+                        Console.WriteLine(
+                            "| {0,-4} | {1,-15} {2,-15} | {3,-10:yyyy-MM-dd} | {4,-5:HH:mm} | {5,-10} |",
+                            reader.GetInt32(0),
+                            reader.GetString(1),
+                            reader.GetString(2),
+                            appointmentDate,
+                            appointmentDate,
+                            reader.GetString(4));
+                    }
+                }
+                else
+                {
+                    Console.ForegroundColor= ConsoleColor.Red;  
+                    Console.WriteLine("No upcoming appointments found.");
+                    Console.ResetColor();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor
+                    = ConsoleColor.Red;
+                Console.WriteLine($"Error: {ex.Message}");
+                Console.ResetColor();   
+            }
+        }
+
+        private static void AddMedicalNote()
+        {
+            if (!EnsureInitialized()) return;
+
+            try
+            {
+                using var connection = CreateConnection();
+                connection.Open();
+
+                Console.WriteLine("New Medical Note:");    
+                Console.Write("Enter Appointment ID: ");
+                int appointmentId = int.Parse(Console.ReadLine());
+
+                Console.Write("Enter Diagnosis: ");
+                string diagnosis = Console.ReadLine();
+
+                Console.Write("Enter Symptoms: ");
+                string symptoms = Console.ReadLine();
+
+                Console.Write("Enter Treatment Plan: ");
+                string treatmentPlan = Console.ReadLine();
+
+                string query = @"
+                    INSERT INTO MedicalNotes (AppointmentID, Diagnosis, Symptoms, TreatmentPlan)
+                    VALUES (@AppointmentID, @Diagnosis, @Symptoms, @TreatmentPlan);";
+
+                using var cmd = CreateCommand(query, connection);
+                AddParameter(cmd, "@AppointmentID", appointmentId);
+                AddParameter(cmd, "@Diagnosis", diagnosis);
+                AddParameter(cmd, "@Symptoms", symptoms);
+                AddParameter(cmd, "@TreatmentPlan", treatmentPlan);
                 cmd.ExecuteNonQuery();
+
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("Medical note added successfully.");
+                Console.ResetColor ();
             }
-
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("\nMedical note added successfully.");
-            Console.ResetColor();
-        }
-
-        public static void ViewMostRecentMedicalNote()
-        {
-            string query = @"
-                    SELECT TOP 1 
-                        a.AppointmentID, 
-                        p.FirstName, 
-                        p.LastName, 
-                        n.Diagnosis, 
-                        n.Symptoms, 
-                        n.TreatmentPlan, 
-                        n.DateCreated
-                    FROM MedicalNotes n
-                    INNER JOIN Appointments a ON n.AppointmentID = a.AppointmentID
-                    INNER JOIN Patients p ON a.PatientIDNumber = p.IDNumber
-                    WHERE a.DoctorID = @DoctorID
-                    ORDER BY n.DateCreated DESC;
-                ";
-
-            using (SqlCommand cmd = new SqlCommand(query, _connection))
+            catch (Exception ex)
             {
-                cmd.Parameters.AddWithValue("@DoctorID", _doctorId);
-
-                using (SqlDataReader reader = cmd.ExecuteReader())
-                {
-                    Console.Clear();
-                    if (reader.HasRows)
-                    {
-                        Console.WriteLine("=============================================");
-                        Console.WriteLine("          Most Recent Medical Note          ");
-                        Console.WriteLine("=============================================");
-                        Console.WriteLine("| Appointment ID | Patient Name | Diagnosis      | Symptoms       | Treatment Plan  | Date Created |");
-                        Console.WriteLine("--------------------------------------------------------------------------------------------------");
-
-                        reader.Read();
-                        int appointmentId = reader.GetInt32(0);
-                        string patientFirstName = reader.GetString(1);
-                        string patientLastName = reader.GetString(2);
-                        string diagnosis = reader.IsDBNull(3) ? "No diagnosis available." : reader.GetString(3);
-                        string symptoms = reader.IsDBNull(4) ? "No symptoms recorded." : reader.GetString(4);
-                        string treatmentPlan = reader.IsDBNull(5) ? "No treatment plan recorded." : reader.GetString(5);
-                        DateTime noteDate = reader.GetDateTime(6);
-
-                        Console.WriteLine($"| {appointmentId,-15} | {patientFirstName} {patientLastName,-10} | {diagnosis,-15} | {symptoms,-15} | {treatmentPlan,-15} | {noteDate:yyyy-MM-dd} |");
-                        Console.WriteLine("--------------------------------------------------------------------------------------------------");
-                    }
-                    else
-                    {
-                        Console.WriteLine("\nNo medical notes found for this doctor.");
-                    }
-                }
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Error: {ex.Message}");
+                Console.ResetColor ();
             }
         }
 
-        public static void ViewPatientHistory()
+        private static void ViewMostRecentMedicalNote()
         {
-            Console.Write("Enter Patient ID to view history: ");
-            if (!int.TryParse(Console.ReadLine(), out int patientId))
-            {
-                Console.WriteLine("Invalid Patient ID.");
-                return;
-            }
+            if (!EnsureInitialized()) return;
 
             string query = @"
-                    SELECT 
-                        a.AppointmentID,
-                        a.AppointmentDate,
-                        a.Status,
-                        n.Diagnosis,
-                        n.Symptoms,
-                        n.TreatmentPlan,
-                        n.DateCreated
-                    FROM Appointments a
-                    LEFT JOIN MedicalNotes n ON a.AppointmentID = n.AppointmentID
-                    WHERE a.PatientIDNumber = @PatientID
-                    AND a.Status = 'Completed'
-                    ORDER BY a.AppointmentDate;
-                ";
+                SELECT TOP 1 
+                    a.AppointmentID, p.FirstName, p.LastName,
+                    n.Diagnosis, n.Symptoms, n.TreatmentPlan, n.DateCreated
+                FROM MedicalNotes n
+                INNER JOIN Appointments a ON n.AppointmentID = a.AppointmentID
+                INNER JOIN Patients p ON a.PatientIDNumber = p.IDNumber
+                WHERE a.DoctorID = @DoctorID
+                ORDER BY n.DateCreated DESC;";
 
-            using (SqlCommand cmd = new SqlCommand(query, _connection))
+            try
             {
-                cmd.Parameters.AddWithValue("@PatientID", patientId);
+                using var connection = CreateConnection();
+                connection.Open();
+                using var cmd = CreateCommand(query, connection);
+                AddParameter(cmd, "@DoctorID", _doctorId);
 
-                using (SqlDataReader reader = cmd.ExecuteReader())
+                using var reader = cmd.ExecuteReader();
+                Console.Clear();
+                if (reader.Read())
                 {
-                    Console.Clear();
-                    if (reader.HasRows)
-                    {
-                        Console.WriteLine("=============================================");
-                        Console.WriteLine("                Patient History              ");
-                        Console.WriteLine("=============================================");
-                        Console.WriteLine("| Appointment ID | Date       | Status  | Diagnosis      | Symptoms       | Treatment Plan  | Note Date  |");
-                        Console.WriteLine("--------------------------------------------------------------------------------------------------");
-
-                        while (reader.Read())
-                        {
-                            int appointmentId = reader.GetInt32(0);
-                            DateTime appointmentDate = reader.GetDateTime(1);
-                            string status = reader.GetString(2);
-                            string diagnosis = reader.IsDBNull(3) ? "No diagnosis available." : reader.GetString(3);
-                            string symptoms = reader.IsDBNull(4) ? "No symptoms recorded." : reader.GetString(4);
-                            string treatmentPlan = reader.IsDBNull(5) ? "No treatment plan recorded." : reader.GetString(5);
-                            DateTime? noteDate = reader.IsDBNull(6) ? (DateTime?)null : reader.GetDateTime(6);
-
-                            Console.WriteLine($"| {appointmentId,-15} | {appointmentDate:yyyy-MM-dd} | {status,-7} | {diagnosis,-15} | {symptoms,-15} | {treatmentPlan,-15} | {(noteDate.HasValue ? noteDate.Value.ToString("yyyy-MM-dd") : "N/A"),-10} |");
-                            Console.WriteLine("--------------------------------------------------------------------------------------------------");
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine("\nNo completed appointments found for this patient.");
-                    }
+                    Console.WriteLine("=== Most Recent Medical Note ===");
+                    Console.WriteLine($"Appointment ID: {reader.GetInt32(0)}");
+                    Console.WriteLine($"Patient: {reader.GetString(1)} {reader.GetString(2)}");
+                    Console.WriteLine($"Diagnosis: {reader.GetString(3)}");
+                    Console.WriteLine($"Symptoms: {reader.GetString(4)}");
+                    Console.WriteLine($"Treatment Plan: {reader.GetString(5)}");
+                    Console.WriteLine($"Date Created: {reader.GetDateTime(6)}");
+                }
+                else
+                {
+                    Console.ForegroundColor= ConsoleColor.Red;
+                    Console.WriteLine("No medical notes found.");
+                    Console.ResetColor();
                 }
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+            }
+        }
+
+        private static void ViewPatientHistory()
+        {
+            if (!EnsureInitialized()) return;
+
+            Console.Write("Enter Patient ID Number: ");
+            string patientId = Console.ReadLine();
+            Console.WriteLine($"Searching history for Patient ID: {patientId}");
+
+            string query = @"
+        SELECT 
+            a.AppointmentID, a.AppointmentDate, a.Status,
+            m.Diagnosis, m.Symptoms, m.TreatmentPlan
+        FROM Appointments a
+        INNER JOIN MedicalNotes m ON a.AppointmentID = m.AppointmentID
+        WHERE a.PatientIDNumber = @PatientID
+        ORDER BY a.AppointmentDate DESC;";
+
+            try
+            {
+                using var connection = CreateConnection();
+                connection.Open();
+                using var cmd = CreateCommand(query, connection);
+                AddParameter(cmd, "@PatientID", patientId);
+
+                using var reader = cmd.ExecuteReader();
+                Console.Clear();
+                if (reader.HasRows)
+                {
+                    Console.WriteLine("=== Patient History ===");
+                    // Adjust column widths for proper alignment
+                    Console.WriteLine("| {0,-12} | {1,-15} | {2,-10} | {3,-20} | {4,-30} | {5,-30} |",
+                                      "Appointment ID", "Date", "Status", "Diagnosis", "Symptoms", "Treatment Plan");
+
+                    while (reader.Read())
+                    {
+                        var appointmentDate = reader.GetDateTime(1);
+                        Console.WriteLine(
+                            "| {0,-12} | {1,-15:yyyy-MM-dd} | {2,-10} | {3,-20} | {4,-30} | {5,-30} |",
+                            reader.GetInt32(0),
+                            appointmentDate,
+                            reader.GetString(2),
+                            reader.GetString(3),
+                            reader.GetString(4),
+                            reader.GetString(5));
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("No patient history found.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+            }
+        }
+
+        private static void WaitForInput()
+        {
+            Console.WriteLine("\n\n=========================================");
+            Console.WriteLine(" Press any key to return to the main menu ");
+            Console.WriteLine("=========================================\n");
+            Console.ReadKey();
+
+        }
+
+        private static bool EnsureInitialized()
+        {
+            if (string.IsNullOrEmpty(_connectionString) || _doctorId == 0)
+            {
+                Console.WriteLine("Doctor is not properly initialized.");
+                return false;
+            }
+            return true;
+        }
+
+        private static SqlConnection CreateConnection()
+        {
+            return new SqlConnection(_connectionString);
+        }
+
+        private static SqlCommand CreateCommand(string query, SqlConnection connection)
+        {
+            return new SqlCommand(query, connection);
+        }
+
+        private static void AddParameter(SqlCommand cmd, string paramName, object value)
+        {
+            cmd.Parameters.AddWithValue(paramName, value ?? DBNull.Value);
         }
     }
 }

@@ -7,7 +7,7 @@ namespace myClinic
 {
     public class Receptionist
     {
-        private static readonly string ConnectionString = @"Data Source=DESKTOP-O7AMP6F;Initial Catalog=myClinicPMS;Integrated Security=True;Trust Server Certificate=True;encrypt=false";
+        private static readonly string ConnectionString = @"Data Source=ACADEMICWEAPON;Initial Catalog=PMSmyClinic;Integrated Security=True;Trust Server Certificate=True;Encrypt=False";
 
         public static void RegisterPatient()
         {
@@ -15,109 +15,110 @@ namespace myClinic
             try
             {
                 connection.Open();
+
                 Console.WriteLine("Enter Patient First name:");
-                string firstName = Console.ReadLine();
+                string firstName = Console.ReadLine()?.Trim();
+
                 Console.WriteLine("Enter Patient Last name:");
-                string lastName = Console.ReadLine();
+                string lastName = Console.ReadLine()?.Trim();
+
                 Console.WriteLine("Enter Patient Age:");
-                if (!int.TryParse(Console.ReadLine(), out int age))
+                if (!int.TryParse(Console.ReadLine(), out int age) || age <= 0)
                 {
                     Console.WriteLine("Invalid age input.");
                     return;
                 }
+
                 Console.WriteLine("Enter Patient Gender:");
-                string gender = Console.ReadLine();
+                string gender = Console.ReadLine()?.Trim();
 
-                bool validId = false;
                 string idNumber = "";
-
-                while (!validId)
+                while (true)
                 {
                     Console.WriteLine("Enter Patient ID number (13 digits):");
-                    idNumber = Console.ReadLine();
-                    if (idNumber.Length == 13)
-                    {
-                        validId = true;
-                    }
-                    else
-                    {
-                        Console.WriteLine("Invalid ID number. Please try again.");
-                    }
+                    idNumber = Console.ReadLine()?.Trim();
+                    if (!string.IsNullOrEmpty(idNumber) && idNumber.Length == 13 && long.TryParse(idNumber, out _))
+                        break;
+                    Console.WriteLine("Invalid ID number. Please try again.");
                 }
 
-                string insertPatientQuery = @"INSERT INTO Profiles (FirstName, LastName, Age, Gender, IDNumber, Role)
-                                              VALUES (@FirstName, @LastName, @Age, @Gender, @IDNumber, 'Patient')";
+                string insertPatientQuery = @"INSERT INTO Patients (FirstName, LastName, DateOfBirth, Gender, IDNumber)
+                                              VALUES (@FirstName, @LastName, @DateOfBirth, @Gender, @IDNumber)";
+
                 using SqlCommand cmd = new SqlCommand(insertPatientQuery, connection);
                 cmd.Parameters.AddWithValue("@FirstName", firstName);
                 cmd.Parameters.AddWithValue("@LastName", lastName);
-                cmd.Parameters.AddWithValue("@Age", age);
+                cmd.Parameters.AddWithValue("@DateOfBirth", DateTime.Today.AddYears(-age));
                 cmd.Parameters.AddWithValue("@Gender", gender);
                 cmd.Parameters.AddWithValue("@IDNumber", idNumber);
                 cmd.ExecuteNonQuery();
 
+                Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Patient registered successfully.");
+                Console.ResetColor();
             }
             catch (Exception ex)
             {
+                Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine($"Error: {ex.Message}");
+                Console.ResetColor();
             }
+            Console.WriteLine("\n\n=========================================");
+            Console.WriteLine(" Press any key to return to the main menu ");
+            Console.WriteLine("=========================================\n");
+            Console.ReadKey();
+
         }
 
         public static void BookAppointment()
         {
-            bool booking = true;
-
-            while (booking)
+            while (true)
             {
                 using SqlConnection connection = new SqlConnection(ConnectionString);
                 try
                 {
                     connection.Open();
+
                     Console.WriteLine("Here are all our doctors:");
-                    string doctorQuery = "SELECT * FROM Doctors";
+                    string doctorQuery = "SELECT * FROM StaffDoctors";
                     using SqlCommand cmd = new SqlCommand(doctorQuery, connection);
                     using SqlDataReader reader = cmd.ExecuteReader();
-
                     while (reader.Read())
                     {
-                        Console.WriteLine($"DoctorID: {reader.GetInt32(0)}, FirstName: {reader.GetString(1)}, LastName: {reader.GetString(2)}, Speciality: {reader.GetString(3)}");
-                        Console.WriteLine();
+                        Console.WriteLine($"DoctorID: {reader.GetInt32(0)}, Name: {reader.GetString(1)} {reader.GetString(2)}, Specialty: {reader.GetString(3)}");
                     }
                     reader.Close();
 
                     Console.WriteLine("Enter Patient ID number:");
-                    string patientId = Console.ReadLine();
+                    string patientId = Console.ReadLine()?.Trim();
 
                     string checkPatientQuery = "SELECT COUNT(*) FROM Patients WHERE IDNumber = @IDNumber";
                     using SqlCommand checkCmd = new SqlCommand(checkPatientQuery, connection);
                     checkCmd.Parameters.AddWithValue("@IDNumber", patientId);
-                    int patientExists = (int)checkCmd.ExecuteScalar();
-
-                    if (patientExists == 0)
+                    if ((int)checkCmd.ExecuteScalar() == 0)
                     {
-                        Console.WriteLine("Patient ID number is incorrect. Try again.");
+                        Console.WriteLine("Patient not found. Try again.");
                         continue;
                     }
 
                     Console.WriteLine("Enter reason for the appointment:");
                     string reason = Console.ReadLine();
+
                     Console.WriteLine("Enter Doctor ID:");
                     string doctorId = Console.ReadLine();
-                    Console.WriteLine("Enter appointment date and time (YYYY/MM/DD HH:MM:SS):");
 
+                    Console.WriteLine("Enter appointment date and time (YYYY-MM-DD HH:MM:SS):");
                     if (!DateTime.TryParse(Console.ReadLine(), out DateTime appointmentDate) || appointmentDate <= DateTime.Now)
                     {
                         Console.WriteLine("Invalid or past date entered.");
                         continue;
                     }
 
-                    string checkDateQuery = "SELECT COUNT(*) FROM Appointments WHERE AppointmentDateTime = @Date AND DoctorID = @DoctorID";
+                    string checkDateQuery = "SELECT COUNT(*) FROM Appointments WHERE AppointmentDate = @Date AND DoctorID = @DoctorID";
                     using SqlCommand dateCmd = new SqlCommand(checkDateQuery, connection);
                     dateCmd.Parameters.AddWithValue("@Date", appointmentDate);
                     dateCmd.Parameters.AddWithValue("@DoctorID", doctorId);
-                    int isOccupied = (int)dateCmd.ExecuteScalar();
-
-                    if (isOccupied > 0)
+                    if ((int)dateCmd.ExecuteScalar() > 0)
                     {
                         Console.WriteLine("The chosen date and time is already occupied. Please choose another.");
                         Thread.Sleep(2500);
@@ -125,23 +126,35 @@ namespace myClinic
                         continue;
                     }
 
-                    string insertAppointmentQuery = @"INSERT INTO Appointments (IDNumber, DoctorID, Reason, AppointmentDateTime, Status)
-                                                      VALUES (@IDNumber, @DoctorID, @Reason, @AppointmentDateTime, 'Scheduled')";
+                    string insertAppointmentQuery = @"INSERT INTO Appointments (PatientIDNumber, DoctorID, AppointmentDate, Status)
+                                                      VALUES (@IDNumber, @DoctorID, @AppointmentDate, 'Scheduled')";
                     using SqlCommand insertCmd = new SqlCommand(insertAppointmentQuery, connection);
                     insertCmd.Parameters.AddWithValue("@IDNumber", patientId);
                     insertCmd.Parameters.AddWithValue("@DoctorID", doctorId);
-                    insertCmd.Parameters.AddWithValue("@Reason", reason);
-                    insertCmd.Parameters.AddWithValue("@AppointmentDateTime", appointmentDate);
+                    insertCmd.Parameters.AddWithValue("@AppointmentDate", appointmentDate);
                     insertCmd.ExecuteNonQuery();
 
+                    Console.ForegroundColor = ConsoleColor.Green;
                     Console.WriteLine("Appointment booked successfully.");
-                    booking = false;
+                    Console.ResetColor();
+                    Console.WriteLine("\n\n=========================================");
+                    Console.WriteLine(" Press any key to return to the main menu ");
+                    Console.WriteLine("=========================================\n");
+                    Console.ReadKey();
+                    break;
                 }
                 catch (Exception ex)
                 {
+                    Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine($"Error: {ex.Message}");
-                    booking = true;
+                    Console.ResetColor();
+
                 }
+                Console.WriteLine("\n\n=========================================");
+                Console.WriteLine(" Press any key to return to the main menu ");
+                Console.WriteLine("=========================================\n");
+                Console.ReadKey();
+
             }
         }
 
@@ -161,14 +174,11 @@ namespace myClinic
             {
                 1 => "SELECT * FROM Appointments",
                 2 => "SELECT * FROM Appointments WHERE DoctorID = @ID",
-                3 => "SELECT * FROM Appointments WHERE IDNumber = @ID",
+                3 => "SELECT * FROM Appointments WHERE PatientIDNumber = @ID",
                 _ => null
             };
 
-            if (query == null)
-            {
-                Environment.Exit(0);
-            }
+            if (query == null) return;
 
             using SqlCommand cmd = new SqlCommand(query, connection);
 
@@ -186,17 +196,18 @@ namespace myClinic
             using SqlDataReader reader = cmd.ExecuteReader();
 
             Console.Clear();
-            Console.WriteLine("Fetching data...");
+            Console.WriteLine("Appointments:");
 
             while (reader.Read())
             {
-                Console.WriteLine($"AppointmentID: {reader.GetInt32(0)}\n" +
-                                  $"IDNumber: {reader.GetString(1)}\n" +
-                                  $"DoctorID: {reader.GetInt32(2)}\n" +
-                                  $"Reason: {reader.GetString(3)}\n" +
-                                  $"AppointmentDate: {reader.GetDateTime(4)}\n" +
-                                  $"Status: {(reader.IsDBNull(5) ? "N/A" : reader.GetString(5))}\n");
+                Console.WriteLine($"AppointmentID: {reader.GetInt32(0)}\nPatientID: {reader.GetString(1)}\nDoctorID: {reader.GetInt32(2)}\nAppointmentDate: {reader.GetDateTime(3)}\nStatus: {reader.GetString(4)}\n");
             }
+            Console.WriteLine("\n\n=========================================");
+            Console.WriteLine(" Press any key to return to the main menu ");
+            Console.WriteLine("=========================================\n");
+            Console.ReadKey();
+
+
         }
 
         public static void UpdateAppointment()
@@ -205,51 +216,54 @@ namespace myClinic
             try
             {
                 connection.Open();
-                bool updating = true;
-                while (updating)
+
+                Console.WriteLine("Enter Appointment ID to update:");
+                if (!int.TryParse(Console.ReadLine(), out int appointmentId))
                 {
-                    Console.WriteLine("Enter Appointment ID you want to update:");
-                    if (!int.TryParse(Console.ReadLine(), out int appointmentId))
-                    {
-                        Console.WriteLine("Invalid Appointment ID.");
-                        continue;
-                    }
-
-                    Console.WriteLine("Enter new appointment date and time (YYYY/MM/DD HH:MM:SS):");
-                    if (!DateTime.TryParse(Console.ReadLine(), out DateTime newDateTime) || newDateTime <= DateTime.Now)
-                    {
-                        Console.WriteLine("Invalid or past date entered.");
-                        continue;
-                    }
-
-                    Console.WriteLine("Enter new appointment status:");
-                    string newStatus = Console.ReadLine();
-
-                    string updateQuery = @"UPDATE Appointments 
-                                           SET AppointmentDateTime = @AppointmentDateTime, Status = @Status 
-                                           WHERE AppointmentID = @AppointmentID";
-
-                    using SqlCommand cmd = new SqlCommand(updateQuery, connection);
-                    cmd.Parameters.AddWithValue("@AppointmentDateTime", newDateTime);
-                    cmd.Parameters.AddWithValue("@Status", newStatus);
-                    cmd.Parameters.AddWithValue("@AppointmentID", appointmentId);
-
-                    int rowsAffected = cmd.ExecuteNonQuery();
-                    if (rowsAffected > 0)
-                    {
-                        Console.WriteLine("Appointment updated successfully.");
-                        updating = false;
-                    }
-                    else
-                    {
-                        Console.WriteLine("Appointment ID not found. Try again.");
-                    }
+                    Console.WriteLine("Invalid Appointment ID.");
+                    return;
                 }
+
+                string checkQuery = "SELECT COUNT(*) FROM Appointments WHERE AppointmentID = @AppointmentID";
+                using SqlCommand checkCmd = new SqlCommand(checkQuery, connection);
+                checkCmd.Parameters.AddWithValue("@AppointmentID", appointmentId);
+                if ((int)checkCmd.ExecuteScalar() == 0)
+                {
+                    Console.WriteLine("Appointment not found.");
+                    return;
+                }
+
+                Console.WriteLine("Enter new appointment date and time (YYYY-MM-DD HH:MM:SS):");
+                if (!DateTime.TryParse(Console.ReadLine(), out DateTime newDate) || newDate <= DateTime.Now)
+                {
+                    Console.WriteLine("Invalid or past date entered.");
+                    return;
+                }
+
+                Console.WriteLine("Enter new status (Scheduled, Completed, Cancelled):");
+                string newStatus = Console.ReadLine();
+
+                string updateQuery = "UPDATE Appointments SET AppointmentDate = @NewDate, Status = @Status WHERE AppointmentID = @AppointmentID";
+                using SqlCommand updateCmd = new SqlCommand(updateQuery, connection);
+                updateCmd.Parameters.AddWithValue("@NewDate", newDate);
+                updateCmd.Parameters.AddWithValue("@Status", newStatus);
+                updateCmd.Parameters.AddWithValue("@AppointmentID", appointmentId);
+
+                int affected = updateCmd.ExecuteNonQuery();
+                Console.WriteLine(affected > 0 ? "Appointment updated successfully." : "No changes made.");
             }
             catch (Exception ex)
             {
+                Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine($"Error: {ex.Message}");
+                Console.ResetColor();
             }
+            Console.WriteLine("\n\n=========================================");
+            Console.WriteLine(" Press any key to return to the main menu ");
+            Console.WriteLine("=========================================\n");
+            Console.ReadKey();
+
+
         }
     }
 }

@@ -1,133 +1,176 @@
 ﻿using System;
 using Microsoft.Data.SqlClient;
+using Spectre.Console;
 
 namespace myClinic
 {
     public class Login
     {
-       public  static string connectionString = @"Data Source=DESKTOP-O7AMP6F;Initial Catalog=PMSmyClinic;Integrated Security=True;Trust Server Certificate=FALSE;encrypt=false";
+        private static readonly string connectionString = @"Data Source=ACADEMICWEAPON;Initial Catalog=PMSmyClinic;Integrated Security=True;Trust Server Certificate=True;Encrypt=False";
 
-        public static void LoginUser(string role)
+        public static void LoginDoctor() => LoginUser("Doctor");
+        public static void LoginRec() => LoginUser("Receptionist");
+        public static void LoginAdmin() => LoginUser("Admin");
+
+        private static void LoginUser(string role)
         {
-            bool repeat = true;
-
             using SqlConnection connection = new SqlConnection(connectionString);
+            connection.Open();
+
+            bool isLoggedIn = false;
+
+            while (!isLoggedIn)
             {
-                connection.Open();
+                Console.WriteLine($"Enter your {role} Username:");
+                string username = Console.ReadLine();
 
-                while (repeat)
+                Console.WriteLine($"Enter your {role} Password:");
+                string password = Console.ReadLine();
+
+                if (ValidateCredentials(username, password, role, connection))
                 {
-                    Console.WriteLine($"Enter your {role} Username:");
-                    string username = Console.ReadLine();
+                    Console.WriteLine("\nYou are now logged in.\n");
+                    isLoggedIn = true;
 
-                    Console.WriteLine($"Enter your {role} Password:");
-                    string password = Console.ReadLine();
+                    ShowMenu(role);
 
-                    //Hash the password before checking it
-                    string hashedPassword = Password.HashPassword(password);
-
-                    string checkDetailsQuery = @"SELECT COUNT(*) FROM Users WHERE Username = @username AND PasswordHash = @password AND Role = @role";
-
-                    using SqlCommand cmd = new SqlCommand(checkDetailsQuery, connection);
-                    cmd.Parameters.AddWithValue("@username", username);
-                    cmd.Parameters.AddWithValue("@password", hashedPassword); 
-                    cmd.Parameters.AddWithValue("@role", role);
-
-
-                    int result = (int)cmd.ExecuteScalar();
-                    Console.WriteLine(result);
-
-                    if (result > 0)
+                    switch (role)
                     {
-                        Console.WriteLine("\nYou are now logged in.\n");
-                        repeat = false;
-
-                        // After successful login, go to their menu
-                        if (role == "Receptionist")
-                        {
-                            ReceptionistMenu();
-                        }
-                        else if (role == "Doctor")
-                        {
-                            Doctor.ShowDoctorMenu();
-                        }
-                        else if (role == "Admin")
-                        {
-                            AdminMenu();
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine("\nINCORRECT USERNAME OR PASSWORD.");
-                        Console.WriteLine("1. Try Again");
-                        Console.WriteLine("2. Exit");
-
-                        if (int.TryParse(Console.ReadLine(), out int choice))
-                        {
-                            if (choice == 1)
+                        case "Receptionist":
+                            ShowReceptionistMenu();
+                            break;
+                        case "Doctor":
+                            int userId = FetchUserId(username);
+                            if (Doctor.Initialize(connectionString, userId))
                             {
-                                repeat = true;
-                            }
-                            else if (choice == 2)
-                            {
-                                Environment.Exit(0);
+                                Doctor.ShowDoctorMenu();
                             }
                             else
                             {
-                                Console.WriteLine("Invalid choice. Trying again...");
+                                Console.WriteLine("Doctor initialization failed. Please check if the account is linked properly.");
                             }
-                        }
-                        else
-                        {
-                            Console.WriteLine("Invalid input. Trying again...");
-                        }
+                            break;
+                        case "Admin":
+                            ShowAdminMenu();
+                            break;
                     }
+
+                }
+                else
+                {
+                    HandleLoginFailure();
                 }
             }
         }
 
-        public void LoginDoctor()
+        private static int FetchUserId(string username)
         {
-            LoginUser("Doctor");
+            using var connection = new SqlConnection(connectionString);
+            connection.Open();
+
+            string query = "SELECT UserID FROM Users WHERE Username = @Username";
+            using var cmd = new SqlCommand(query, connection);
+            cmd.Parameters.AddWithValue("@Username", username);
+
+            var result = cmd.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
         }
 
-        public static void LoginRec()
+
+        private static int FetchDoctorIdFromUsername(string username, SqlConnection connection)
         {
-            LoginUser("Receptionist");
+            string query = "SELECT DoctorID FROM Users WHERE Username = @Username AND Role = 'Doctor';";
+
+            using var cmd = new SqlCommand(query, connection);
+            cmd.Parameters.AddWithValue("@Username", username);
+
+            var result = cmd.ExecuteScalar();
+
+            if (result != null)
+            {
+                return (int)result;
+            }
+
+            return -1; // Return -1 if no DoctorID found
         }
 
-        public static void LoginAdmin()
+        private static bool ValidateCredentials(string username, string password, string role, SqlConnection connection)
         {
-            LoginUser("Admin");
+            string query = @"
+                SELECT COUNT(*) 
+                FROM Users 
+                WHERE Username = @username AND PasswordHash = @password AND Role = @role";
+
+            using SqlCommand cmd = new SqlCommand(query, connection);
+            cmd.Parameters.AddWithValue("@username", username);
+            cmd.Parameters.AddWithValue("@password", password);
+            cmd.Parameters.AddWithValue("@role", role);
+
+            return (int)cmd.ExecuteScalar() > 0;
         }
 
-        private static void ReceptionistMenu()
+        private static int FetchDoctorId(string username)
+        {
+            string query = @"
+                SELECT sd.DoctorID
+                FROM StaffDoctors sd
+                INNER JOIN Users u ON u.Username = @username
+                WHERE u.Username = @username";
+
+            using SqlConnection connection = new SqlConnection(connectionString);
+            connection.Open();
+
+            using SqlCommand cmd = new SqlCommand(query, connection);
+            cmd.Parameters.AddWithValue("@username", username);
+
+            object result = cmd.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : -1;
+        }
+
+        private static void HandleLoginFailure()
+        {
+            Console.WriteLine("\nIncorrect username or password.");
+            Console.WriteLine("1. Try Again");
+            Console.WriteLine("2. Exit");
+
+            if (int.TryParse(Console.ReadLine(), out int choice) && choice == 2)
+            {
+                Console.WriteLine("Exiting... Goodbye!");
+                Environment.Exit(0);
+            }
+        }
+
+        private static void ShowMenu(string role)
+        {
+            Logo.ShowLoading();
+            Logo.Display();
+            Console.WriteLine($"---- {role} Menu ----");
+        }
+
+        private static void ShowReceptionistMenu()
         {
             bool running = true;
+
             while (running)
             {
                 Console.Clear();
-                Console.WriteLine("---- Receptionist Menu ----");
+                Logo.Display();
+                AnsiConsole.Write(new Rule("[Purple]===Receptionist Menu===[/]").RuleStyle("purple").Centered());
                 Console.WriteLine("1. Register New Patient");
                 Console.WriteLine("2. Book Appointment");
                 Console.WriteLine("3. View Appointments");
                 Console.WriteLine("4. Logout");
                 Console.Write("Select an option: ");
 
-                string choice = Console.ReadLine();
-
-                switch (choice)
+                switch (Console.ReadLine())
                 {
                     case "1":
-                        Console.WriteLine("Registering new patient...");
                         Receptionist.RegisterPatient();
                         break;
                     case "2":
-                        Console.WriteLine("Booking appointment...");
                         Receptionist.BookAppointment();
                         break;
                     case "3":
-                        Console.WriteLine("Viewing Appointments...");
                         Receptionist.ViewAppointment();
                         break;
                     case "4":
@@ -140,41 +183,34 @@ namespace myClinic
                 }
             }
         }
-        private static void AdminMenu()
+
+        private static void ShowAdminMenu()
         {
             bool running = true;
+
             while (running)
             {
                 Console.Clear();
-                Console.WriteLine("---- Admin Menu ----");
+                Logo.Display();
+                AnsiConsole.Write(new Rule("[White]===Admin Menu===[/]").RuleStyle("White").Centered());
                 Console.WriteLine("1. Create Doctor's account");
                 Console.WriteLine("2. Create Receptionist's account");
                 Console.WriteLine("3. Delete a user");
-                Console.WriteLine("4. View today's appointments");
-                Console.WriteLine("5. Logout");
+                Console.WriteLine("4. Logout");
                 Console.Write("Select an option: ");
 
-                string choice = Console.ReadLine();
-
-                switch (choice)
+                switch (Console.ReadLine())
                 {
                     case "1":
-                        Console.WriteLine("Creating Doctor's account...");
                         Admin.CreateDoctor();
                         break;
                     case "2":
-                        Console.WriteLine("Creating Receptionist's account...");
                         Admin.CreateReceptionist();
                         break;
                     case "3":
-                        Console.WriteLine("Delete a user...");
                         Admin.DeleteUser();
                         break;
                     case "4":
-                        Console.WriteLine("Viewing Today's appointments");
-                        Admin.ViewAppointmentsForToday();
-                        break;
-                    case "5":
                         running = false;
                         Console.WriteLine("Logging out...");
                         break;
