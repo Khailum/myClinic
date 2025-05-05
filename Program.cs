@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.Data.SqlClient;
+using Spectre.Console;
 using myClinic;
 
 namespace MyApp
@@ -21,6 +22,7 @@ namespace MyApp
                 using (SqlConnection connection = new SqlConnection(ConnectionString))
                 {
                     connection.Open();
+                    AnsiConsole.MarkupLine("[green]Database connected successfully![/]");
                 }
 
                 Admin.Initialize(ConnectionString);
@@ -31,24 +33,30 @@ namespace MyApp
                 {
                     HandleUserLogin();
 
-                    Console.WriteLine("\nWould you like to:");
-                    Console.WriteLine("1. Return to login screen");
-                    Console.WriteLine("2. Exit the application");
-                    Console.Write("Enter your choice: ");
-                    string input = Console.ReadLine();
+                    var choice = AnsiConsole.Prompt(
+                        new SelectionPrompt<string>()
+                            .Title("\n[bold yellow]Would you like to:[/]")
+                            .PageSize(5)
+                            .HighlightStyle("green")
+                            .AddChoices(new[]
+                            {
+                            "Return to login screen",
+                            "Exit the application"
+                                            }));
 
-                    if (input != "1")
+                    if (choice.Equals("Exit the application", StringComparison.OrdinalIgnoreCase))
                     {
                         running = false;
-                        Console.WriteLine("Goodbye!");
+                        AnsiConsole.MarkupLine("[green]Goodbye![/]");
                     }
+
                 }
+
+                Console.Clear();
             }
             catch (SqlException ex)
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"An error occurred while connecting to the database: {ex.Message}");
-                Console.ResetColor();
+                AnsiConsole.MarkupLine($"[red]An error occurred while connecting to the database: {ex.Message}[/]");
                 Environment.Exit(0); // Exit if database is unavailable
             }
         }
@@ -57,78 +65,70 @@ namespace MyApp
         {
             Logo.Display();
 
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine("---- Welcome to myClinic! ----");
+            AnsiConsole.MarkupLine("[cyan]---- Welcome to myClinic! ----[/]");
             Console.ResetColor();
+
             bool validLogin = false;
             int attempts = 0;
 
             while (!validLogin && attempts < 3)
             {
-                Console.WriteLine("\nHi!\nAre you signing in as:");
-                Console.WriteLine("1. Receptionist");
-                Console.WriteLine("2. Doctor");
-                Console.WriteLine("3. Admin");
-                Console.Write("Please enter your choice (1, 2, or 3): ");
+                var role = AnsiConsole.Prompt(
+                    new SelectionPrompt<string>()
+                        .Title("\n[bold]Hi![/] [green]Who are you signing in as?[/]")
+                        .PageSize(10)
+                        .AddChoices(new[]
+                        {
+                            "Receptionist",
+                            "Doctor",
+                            "Admin"
+                        }));
 
-                string input = Console.ReadLine();
-                if (int.TryParse(input, out int position))
+                Console.Clear();
+                Logo.Display();
+                GreetUser(role);
+
+                switch (role)
                 {
-                    switch (position)
-                    {
-                        case 1:
-                            Console.Clear();
-                            Logo.Display();
-                            GreetUser("Receptionist");
-                            Login.LoginRec();
-                            validLogin = true;
-                            break;
-                        case 2:
-                            Console.Clear();
-                            Logo.Display();
-                            GreetUser("Doctor");
-                            Login.LoginDoctor();
-                            validLogin = true;
-                            break;
-                        case 3:
-                            Console.Clear();
-                            Logo.Display();
-                            GreetUser("Admin");
-                            Login.LoginAdmin();
-                            validLogin = true;
-                            break;
-                        default:
-                            InvalidChoice();
-                            attempts++;
-                            break;
-                    }
+                    case "Receptionist":
+                        Login.LoginRec();
+                        validLogin = true;
+                        break;
+                    case "Doctor":
+                        Login.LoginDoctor();
+                        validLogin = true;
+                        break;
+                    case "Admin":
+                        Login.LoginAdmin();
+                        validLogin = true;
+                        break;
+                    default:
+                        InvalidChoice();
+                        attempts++;
+                        break;
                 }
-                else
+
+                if (!validLogin)
                 {
-                    InvalidChoice();
                     attempts++;
                 }
             }
 
             if (!validLogin)
             {
-                Console.WriteLine("Too many failed attempts. Exiting...");
+                AnsiConsole.MarkupLine("[red]Too many failed attempts. Exiting...[/]");
                 Environment.Exit(0);
             }
         }
 
         static void GreetUser(string role)
         {
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine($"\nHi, welcome back {role}!");
-            Console.ResetColor();
+            AnsiConsole.MarkupLine($"[cyan]\nHi, welcome back {role}![/]");
         }
 
         static void InvalidChoice()
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("\nInvalid choice. Please enter 1, 2, or 3.");
-            Console.ResetColor();
+            AnsiConsole.MarkupLine("[red]\nInvalid choice. Please enter 1, 2, or 3.[/]");
         }
     }
 }

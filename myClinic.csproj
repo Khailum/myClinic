@@ -8,8 +8,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Atc.Console.Spectre" Version="2.0.552" />
+    <PackageReference Include="CommandDotNet.Spectre" Version="4.1.0" />
+    <PackageReference Include="CommandDotNet.Spectre.Testing" Version="4.1.0" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.1" />
     <PackageReference Include="Microsoft.SqlServer.Server" Version="1.0.0" />
+    <PackageReference Include="Spectre.Console" Version="0.50.0" />
+    <PackageReference Include="Spectre.Console.Extensions.Progress" Version="1.0.0" />
+    <PackageReference Include="Spectre.Console.Extensions.Table" Version="1.0.0" />
     <PackageReference Include="System.Data.SqlClient" Version="4.9.0" />
   </ItemGroup>
 

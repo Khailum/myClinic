@@ -1,6 +1,8 @@
 ﻿using System;
 using Microsoft.Data.SqlClient;
 using Spectre.Console;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace myClinic
 {
@@ -21,15 +23,15 @@ namespace myClinic
 
             while (!isLoggedIn)
             {
-                Console.WriteLine($"Enter your {role} Username:");
+                AnsiConsole.MarkupLine($"[cyan]Enter your {role} Username:[/]");
                 string username = Console.ReadLine();
 
-                Console.WriteLine($"Enter your {role} Password:");
-                string password = Console.ReadLine();
+                AnsiConsole.MarkupLine($"[cyan]Enter your {role} Password:[/]");
+                string password = ReadPassword();  // Get the password input
 
-                if (ValidateCredentials(username, password, role, connection))
+                if (ValidateCredentials(username, password, role, connection))  // Pass plaintext password
                 {
-                    Console.WriteLine("\nYou are now logged in.\n");
+                    AnsiConsole.MarkupLine("[green]You are now logged in.[/]");
                     isLoggedIn = true;
 
                     ShowMenu(role);
@@ -47,20 +49,43 @@ namespace myClinic
                             }
                             else
                             {
-                                Console.WriteLine("Doctor initialization failed. Please check if the account is linked properly.");
+                                AnsiConsole.MarkupLine("[red]Doctor initialization failed. Please check if the account is linked properly.[/]");
                             }
                             break;
                         case "Admin":
                             ShowAdminMenu();
                             break;
                     }
-
                 }
                 else
                 {
                     HandleLoginFailure();
                 }
             }
+        }
+
+        private static string ReadPassword()
+        {
+            StringBuilder password = new StringBuilder();
+            while (true)
+            {
+                var key = Console.ReadKey(true);
+                if (key.Key == ConsoleKey.Enter)
+                    break;
+
+                if (key.Key == ConsoleKey.Backspace && password.Length > 0)
+                {
+                    password.Length--; // Remove the last character
+                    Console.Write("\b \b"); // Remove the asterisk
+                }
+                else
+                {
+                    password.Append(key.KeyChar);
+                    Console.Write("*"); // Display asterisk for each character
+                }
+            }
+            Console.WriteLine();
+            return password.ToString();
         }
 
         private static int FetchUserId(string username)
@@ -76,30 +101,12 @@ namespace myClinic
             return result != null ? Convert.ToInt32(result) : 0;
         }
 
-
-        private static int FetchDoctorIdFromUsername(string username, SqlConnection connection)
-        {
-            string query = "SELECT DoctorID FROM Users WHERE Username = @Username AND Role = 'Doctor';";
-
-            using var cmd = new SqlCommand(query, connection);
-            cmd.Parameters.AddWithValue("@Username", username);
-
-            var result = cmd.ExecuteScalar();
-
-            if (result != null)
-            {
-                return (int)result;
-            }
-
-            return -1; // Return -1 if no DoctorID found
-        }
-
         private static bool ValidateCredentials(string username, string password, string role, SqlConnection connection)
         {
             string query = @"
                 SELECT COUNT(*) 
                 FROM Users 
-                WHERE Username = @username AND PasswordHash = @password AND Role = @role";
+                WHERE Username = @username AND Password = @password AND Role = @role";
 
             using SqlCommand cmd = new SqlCommand(query, connection);
             cmd.Parameters.AddWithValue("@username", username);
@@ -109,33 +116,15 @@ namespace myClinic
             return (int)cmd.ExecuteScalar() > 0;
         }
 
-        private static int FetchDoctorId(string username)
-        {
-            string query = @"
-                SELECT sd.DoctorID
-                FROM StaffDoctors sd
-                INNER JOIN Users u ON u.Username = @username
-                WHERE u.Username = @username";
-
-            using SqlConnection connection = new SqlConnection(connectionString);
-            connection.Open();
-
-            using SqlCommand cmd = new SqlCommand(query, connection);
-            cmd.Parameters.AddWithValue("@username", username);
-
-            object result = cmd.ExecuteScalar();
-            return result != null ? Convert.ToInt32(result) : -1;
-        }
-
         private static void HandleLoginFailure()
         {
-            Console.WriteLine("\nIncorrect username or password.");
-            Console.WriteLine("1. Try Again");
-            Console.WriteLine("2. Exit");
+            AnsiConsole.MarkupLine("[red]\nIncorrect username or password.[/]");
+            AnsiConsole.MarkupLine("[yellow]1. Try Again[/]");
+            AnsiConsole.MarkupLine("[yellow]2. Exit[/]");
 
             if (int.TryParse(Console.ReadLine(), out int choice) && choice == 2)
             {
-                Console.WriteLine("Exiting... Goodbye!");
+                AnsiConsole.MarkupLine("[green]Exiting... Goodbye![/]");
                 Environment.Exit(0);
             }
         }
@@ -144,7 +133,7 @@ namespace myClinic
         {
             Logo.ShowLoading();
             Logo.Display();
-            Console.WriteLine($"---- {role} Menu ----");
+            AnsiConsole.MarkupLine($"[green]---- {role} Menu ----[/]");
         }
 
         private static void ShowReceptionistMenu()
@@ -155,30 +144,33 @@ namespace myClinic
             {
                 Console.Clear();
                 Logo.Display();
-                AnsiConsole.Write(new Rule("[Purple]===Receptionist Menu===[/]").RuleStyle("purple").Centered());
-                Console.WriteLine("1. Register New Patient");
-                Console.WriteLine("2. Book Appointment");
-                Console.WriteLine("3. View Appointments");
-                Console.WriteLine("4. Logout");
-                Console.Write("Select an option: ");
+                AnsiConsole.Write(new Rule("[purple]===Receptionist Menu===[/]").RuleStyle("purple").Centered());
 
-                switch (Console.ReadLine())
+                var menuPrompt = new SelectionPrompt<string>()
+                    .Title("[purple]Select an option[/]")
+                    .AddChoices(
+                        "Register New Patient",
+                        "Book Appointment",
+                        "View Appointments",
+                        "Logout"
+                    );
+
+                string choice = AnsiConsole.Prompt(menuPrompt);
+
+                switch (choice)
                 {
-                    case "1":
+                    case "Register New Patient":
                         Receptionist.RegisterPatient();
                         break;
-                    case "2":
+                    case "Book Appointment":
                         Receptionist.BookAppointment();
                         break;
-                    case "3":
+                    case "View Appointments":
                         Receptionist.ViewAppointment();
                         break;
-                    case "4":
+                    case "Logout":
                         running = false;
-                        Console.WriteLine("Logging out...");
-                        break;
-                    default:
-                        Console.WriteLine("Invalid choice. Please try again.");
+                        AnsiConsole.MarkupLine("[green]Logging out...[/]");
                         break;
                 }
             }
@@ -192,33 +184,37 @@ namespace myClinic
             {
                 Console.Clear();
                 Logo.Display();
-                AnsiConsole.Write(new Rule("[White]===Admin Menu===[/]").RuleStyle("White").Centered());
-                Console.WriteLine("1. Create Doctor's account");
-                Console.WriteLine("2. Create Receptionist's account");
-                Console.WriteLine("3. Delete a user");
-                Console.WriteLine("4. Logout");
-                Console.Write("Select an option: ");
+                AnsiConsole.Write(new Rule("[white]===Admin Menu===[/]").RuleStyle("white").Centered());
 
-                switch (Console.ReadLine())
+                var menuPrompt = new SelectionPrompt<string>()
+                    .Title("[white]Select an option[/]")
+                    .AddChoices(
+                        "Create Doctor's account",
+                        "Create Receptionist's account",
+                        "Delete a user",
+                        "Logout"
+                    );
+
+                string choice = AnsiConsole.Prompt(menuPrompt);
+
+                switch (choice)
                 {
-                    case "1":
+                    case "Create Doctor's account":
                         Admin.CreateDoctor();
                         break;
-                    case "2":
+                    case "Create Receptionist's account":
                         Admin.CreateReceptionist();
                         break;
-                    case "3":
+                    case "Delete a user":
                         Admin.DeleteUser();
                         break;
-                    case "4":
+                    case "Logout":
                         running = false;
-                        Console.WriteLine("Logging out...");
-                        break;
-                    default:
-                        Console.WriteLine("Invalid choice. Please try again.");
+                        AnsiConsole.MarkupLine("[green]Logging out...[/]");
                         break;
                 }
             }
         }
+
     }
 }

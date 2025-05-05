@@ -1,13 +1,17 @@
+CREATE DATABASE PMSmyClinic;
+
+USE PMSmyClinic;
+
 -- USERS
 CREATE TABLE Users (
-    UserID INT PRIMARY KEY IDENTITY,
-    Username NVARCHAR(50) NOT NULL UNIQUE,
-    PasswordHash NVARCHAR(255) NOT NULL, -- Assuming you store hashed passwords
-    Role NVARCHAR(50) NOT NULL, -- 'Doctor', 'Receptionist', 'Admin', etc.
-    DoctorID INT NULL, -- Optional, for doctors
-    CONSTRAINT FK_User_Doctor FOREIGN KEY (DoctorID) REFERENCES StaffDoctors(DoctorID) -- FK to StaffDoctors
+    UserID INT PRIMARY KEY IDENTITY(1,1),
+    Username VARCHAR(100),
+    FirstName VARCHAR(100),
+    LastName VARCHAR(100),
+    IDNumber NVARCHAR(20), -- South African ID
+    PasswordHash NVARCHAR(256),
+    Role VARCHAR(20) -- 'Receptionist', 'Doctor', 'Admin'
 );
-
 
 -- PATIENTS
 CREATE TABLE Patients (

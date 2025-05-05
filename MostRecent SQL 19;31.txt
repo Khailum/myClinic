@@ -1,0 +1,107 @@
+-- Insert Admin User
+INSERT INTO Users (Username, FirstName, LastName, IDNumber, PasswordHash, Role)
+VALUES ('admin123', 'John', 'Admin', '1234567890123', 'hashedpassword123', 'Admin');
+
+-- Insert Receptionist User
+INSERT INTO Users (Username, FirstName, LastName, IDNumber, PasswordHash, Role)
+VALUES ('receptionist123', 'Jane', 'Smith', '9876543210123', 'hashedpassword456', 'Receptionist');
+
+-- Insert Doctor
+INSERT INTO StaffDoctors (FirstName, LastName, TypeDoc)
+VALUES ('Dr. Sarah', 'Jones', 'Cardiologist');
+
+-- Insert Patient
+INSERT INTO Patients (IDNumber, FirstName, LastName, DateOfBirth, Gender)
+VALUES ('1234567890124', 'David', 'Miller', '1985-07-15', 'Male');
+
+-- Insert Appointments for the Patient
+DECLARE @DoctorID INT = (SELECT DoctorID FROM StaffDoctors WHERE FirstName = 'Dr. Sarah' AND LastName = 'Jones');
+DECLARE @PatientIDNumber NVARCHAR(20) = '1234567890124';
+
+-- Insert Future Appointments (e.g., 3 upcoming appointments)
+INSERT INTO Appointments (PatientIDNumber, DoctorID, AppointmentDate, Status)
+VALUES 
+(@PatientIDNumber, @DoctorID, '2025-04-20 10:00:00', 'Scheduled'),
+(@PatientIDNumber, @DoctorID, '2025-05-05 14:00:00', 'Scheduled'),
+(@PatientIDNumber, @DoctorID, '2025-06-15 09:30:00', 'Scheduled');
+
+-- Insert Past Appointments (e.g., 5 past appointments)
+INSERT INTO Appointments (PatientIDNumber, DoctorID, AppointmentDate, Status)
+VALUES 
+(@PatientIDNumber, @DoctorID, '2025-02-10 10:00:00', 'Completed'),
+(@PatientIDNumber, @DoctorID, '2025-01-15 11:00:00', 'Completed'),
+(@PatientIDNumber, @DoctorID, '2024-12-20 13:30:00', 'Completed'),
+(@PatientIDNumber, @DoctorID, '2024-11-25 08:00:00', 'Completed'),
+(@PatientIDNumber, @DoctorID, '2024-10-30 15:00:00', 'Completed');
+
+-- Insert Medical Notes for Past Appointments
+DECLARE @AppointmentID INT;
+-- Insert notes for the past appointments
+SET @AppointmentID = (SELECT AppointmentID FROM Appointments WHERE AppointmentDate = '2025-02-10 10:00:00' AND PatientIDNumber = @PatientIDNumber);
+INSERT INTO MedicalNotes (AppointmentID, Note)
+VALUES 
+(@AppointmentID, 'Patient reports mild chest pain. Prescribed a few tests for further investigation.');
+
+SET @AppointmentID = (SELECT AppointmentID FROM Appointments WHERE AppointmentDate = '2025-01-15 11:00:00' AND PatientIDNumber = @PatientIDNumber);
+INSERT INTO MedicalNotes (AppointmentID, Note)
+VALUES 
+(@AppointmentID, 'Follow-up after heart surgery. No complications. Recommend lifestyle changes.');
+
+SET @AppointmentID = (SELECT AppointmentID FROM Appointments WHERE AppointmentDate = '2024-12-20 13:30:00' AND PatientIDNumber = @PatientIDNumber);
+INSERT INTO MedicalNotes (AppointmentID, Note)
+VALUES 
+(@AppointmentID, 'Patient complained of irregular heartbeat. ECG scheduled for next visit.');
+
+SET @AppointmentID = (SELECT AppointmentID FROM Appointments WHERE AppointmentDate = '2024-11-25 08:00:00' AND PatientIDNumber = @PatientIDNumber);
+INSERT INTO MedicalNotes (AppointmentID, Note)
+VALUES 
+(@AppointmentID, 'Patient requested a routine checkup. Blood pressure normal, no concerns.');
+
+SET @AppointmentID = (SELECT AppointmentID FROM Appointments WHERE AppointmentDate = '2024-10-30 15:00:00' AND PatientIDNumber = @PatientIDNumber);
+INSERT INTO MedicalNotes (AppointmentID, Note)
+VALUES 
+(@AppointmentID, 'Patient reports anxiety-related chest discomfort. Prescribed anti-anxiety medication.');
+
+-- Insert Medical Notes for Future Appointments (for demonstration purposes, only adding 2 future notes)
+SET @AppointmentID = (SELECT AppointmentID FROM Appointments WHERE AppointmentDate = '2025-04-20 10:00:00' AND PatientIDNumber = @PatientIDNumber);
+INSERT INTO MedicalNotes (AppointmentID, Note)
+VALUES 
+(@AppointmentID, 'Routine checkup. Patient due for annual blood tests.');
+
+SET @AppointmentID = (SELECT AppointmentID FROM Appointments WHERE AppointmentDate = '2025-05-05 14:00:00' AND PatientIDNumber = @PatientIDNumber);
+INSERT INTO MedicalNotes (AppointmentID, Note)
+VALUES 
+(@AppointmentID, 'Follow-up on heart disease. Monitor cholesterol levels.');
+
+-- Confirm data insertion
+SELECT * FROM Users;
+SELECT * FROM Patients;
+SELECT * FROM StaffDoctors;
+SELECT * FROM Appointments;
+SELECT * FROM MedicalNotes;
+
+ALTER TABLE MedicalNotes
+DROP COLUMN Note;
+ALTER TABLE MedicalNotes
+ADD Diagnosis VARCHAR(255),
+    TreatmentPlan TEXT,
+    Symptoms TEXT;
+
+SELECT * FROM Users WHERE UserID = 1;
+SELECT sd.DoctorID 
+FROM Users u
+INNER JOIN StaffDoctors sd ON u.DoctorID = sd.DoctorID
+WHERE u.UserID = 4 AND u.Role = 'Doctor';
+INSERT INTO Users (Username, FirstName, LastName, IDNumber, PasswordHash, Role, DoctorID)
+VALUES ('doc1', 'John', 'Smith', '9001015009087', 'pass123', 'Doctor', 4);
+
+UPDATE Users
+SET Role = 'Doctor',
+    DoctorID = 1
+WHERE UserID = 3;
+
+SELECT sd.DoctorID 
+FROM Users u
+INNER JOIN StaffDoctors sd ON u.DoctorID = sd.DoctorID
+WHERE u.UserID = 3 AND u.Role = 'Doctor';
+

@@ -2,6 +2,7 @@
 using System.Data;
 using System.Threading;
 using Microsoft.Data.SqlClient;
+using Spectre.Console;
 
 namespace myClinic
 {
@@ -16,30 +17,30 @@ namespace myClinic
             {
                 connection.Open();
 
-                Console.WriteLine("Enter Patient First name:");
+                AnsiConsole.MarkupLine("[green]Enter Patient First name:[/]");
                 string firstName = Console.ReadLine()?.Trim();
 
-                Console.WriteLine("Enter Patient Last name:");
+                AnsiConsole.MarkupLine("[green]Enter Patient Last name:[/]");
                 string lastName = Console.ReadLine()?.Trim();
 
-                Console.WriteLine("Enter Patient Age:");
+                AnsiConsole.MarkupLine("[green]Enter Patient Age:[/]");
                 if (!int.TryParse(Console.ReadLine(), out int age) || age <= 0)
                 {
-                    Console.WriteLine("Invalid age input.");
+                    AnsiConsole.MarkupLine("[red]Invalid age input.[/]");
                     return;
                 }
 
-                Console.WriteLine("Enter Patient Gender:");
+                AnsiConsole.MarkupLine("[green]Enter Patient Gender:[/]");
                 string gender = Console.ReadLine()?.Trim();
 
                 string idNumber = "";
                 while (true)
                 {
-                    Console.WriteLine("Enter Patient ID number (13 digits):");
+                    AnsiConsole.MarkupLine("[green]Enter Patient ID number (13 digits):[/]");
                     idNumber = Console.ReadLine()?.Trim();
                     if (!string.IsNullOrEmpty(idNumber) && idNumber.Length == 13 && long.TryParse(idNumber, out _))
                         break;
-                    Console.WriteLine("Invalid ID number. Please try again.");
+                    AnsiConsole.MarkupLine("[red]Invalid ID number. Please try again.[/]");
                 }
 
                 string insertPatientQuery = @"INSERT INTO Patients (FirstName, LastName, DateOfBirth, Gender, IDNumber)
@@ -53,21 +54,14 @@ namespace myClinic
                 cmd.Parameters.AddWithValue("@IDNumber", idNumber);
                 cmd.ExecuteNonQuery();
 
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Patient registered successfully.");
-                Console.ResetColor();
+                AnsiConsole.MarkupLine("[green]Patient registered successfully.[/]");
             }
             catch (Exception ex)
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"Error: {ex.Message}");
-                Console.ResetColor();
+                AnsiConsole.MarkupLine($"[red]Error: {ex.Message}[/]");
             }
-            Console.WriteLine("\n\n=========================================");
-            Console.WriteLine(" Press any key to return to the main menu ");
-            Console.WriteLine("=========================================\n");
+            AnsiConsole.MarkupLine("[green]Press any key to return to the main menu[/]");
             Console.ReadKey();
-
         }
 
         public static void BookAppointment()
@@ -79,17 +73,17 @@ namespace myClinic
                 {
                     connection.Open();
 
-                    Console.WriteLine("Here are all our doctors:");
+                    AnsiConsole.MarkupLine("[green]Here are all our doctors:[/]");
                     string doctorQuery = "SELECT * FROM StaffDoctors";
                     using SqlCommand cmd = new SqlCommand(doctorQuery, connection);
                     using SqlDataReader reader = cmd.ExecuteReader();
                     while (reader.Read())
                     {
-                        Console.WriteLine($"DoctorID: {reader.GetInt32(0)}, Name: {reader.GetString(1)} {reader.GetString(2)}, Specialty: {reader.GetString(3)}");
+                        AnsiConsole.MarkupLine($"[green]DoctorID: {reader.GetInt32(0)}, Name: {reader.GetString(1)} {reader.GetString(2)}, Specialty: {reader.GetString(3)}[/]");
                     }
                     reader.Close();
 
-                    Console.WriteLine("Enter Patient ID number:");
+                    AnsiConsole.MarkupLine("[green]Enter Patient ID number:[/]");
                     string patientId = Console.ReadLine()?.Trim();
 
                     string checkPatientQuery = "SELECT COUNT(*) FROM Patients WHERE IDNumber = @IDNumber";
@@ -97,20 +91,20 @@ namespace myClinic
                     checkCmd.Parameters.AddWithValue("@IDNumber", patientId);
                     if ((int)checkCmd.ExecuteScalar() == 0)
                     {
-                        Console.WriteLine("Patient not found. Try again.");
+                        AnsiConsole.MarkupLine("[red]Patient not found. Try again.[/]");
                         continue;
                     }
 
-                    Console.WriteLine("Enter reason for the appointment:");
+                    AnsiConsole.MarkupLine("[green]Enter reason for the appointment:[/]");
                     string reason = Console.ReadLine();
 
-                    Console.WriteLine("Enter Doctor ID:");
+                    AnsiConsole.MarkupLine("[green]Enter Doctor ID:[/]");
                     string doctorId = Console.ReadLine();
 
-                    Console.WriteLine("Enter appointment date and time (YYYY-MM-DD HH:MM:SS):");
+                    AnsiConsole.MarkupLine("[green]Enter appointment date and time (YYYY-MM-DD HH:MM:SS):[/]");
                     if (!DateTime.TryParse(Console.ReadLine(), out DateTime appointmentDate) || appointmentDate <= DateTime.Now)
                     {
-                        Console.WriteLine("Invalid or past date entered.");
+                        AnsiConsole.MarkupLine("[red]Invalid or past date entered.[/]");
                         continue;
                     }
 
@@ -120,7 +114,7 @@ namespace myClinic
                     dateCmd.Parameters.AddWithValue("@DoctorID", doctorId);
                     if ((int)dateCmd.ExecuteScalar() > 0)
                     {
-                        Console.WriteLine("The chosen date and time is already occupied. Please choose another.");
+                        AnsiConsole.MarkupLine("[red]The chosen date and time is already occupied. Please choose another.[/]");
                         Thread.Sleep(2500);
                         Console.Clear();
                         continue;
@@ -134,27 +128,19 @@ namespace myClinic
                     insertCmd.Parameters.AddWithValue("@AppointmentDate", appointmentDate);
                     insertCmd.ExecuteNonQuery();
 
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("Appointment booked successfully.");
-                    Console.ResetColor();
+                    AnsiConsole.MarkupLine("[green]Appointment booked successfully.[/]");
                     Console.WriteLine("\n\n=========================================");
-                    Console.WriteLine(" Press any key to return to the main menu ");
-                    Console.WriteLine("=========================================\n");
+                    AnsiConsole.MarkupLine("[green]Press any key to return to the main menu[/]");
                     Console.ReadKey();
                     break;
                 }
                 catch (Exception ex)
                 {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"Error: {ex.Message}");
-                    Console.ResetColor();
-
+                    AnsiConsole.MarkupLine($"[red]Error: {ex.Message}[/]");
                 }
                 Console.WriteLine("\n\n=========================================");
-                Console.WriteLine(" Press any key to return to the main menu ");
-                Console.WriteLine("=========================================\n");
+                AnsiConsole.MarkupLine("[green]Press any key to return to the main menu[/]");
                 Console.ReadKey();
-
             }
         }
 
@@ -163,18 +149,24 @@ namespace myClinic
             using SqlConnection connection = new SqlConnection(ConnectionString);
             connection.Open();
 
-            Console.WriteLine("1. View all appointments\n2. View appointments for a specific doctor\n3. View appointments for a specific patient\n4. Exit");
-            if (!int.TryParse(Console.ReadLine(), out int choice))
-            {
-                Console.WriteLine("Invalid choice.");
-                return;
-            }
+            // Create a SelectionPrompt for the menu options
+            var menuPrompt = new SelectionPrompt<string>()
+                .Title("[green]Select an option[/]")
+                .AddChoices(
+                    "View all appointments",
+                    "View appointments for a specific doctor",
+                    "View appointments for a specific patient",
+                    "Exit"
+                );
+
+            // Get the selected choice using arrow keys
+            string choice = AnsiConsole.Prompt(menuPrompt);
 
             string query = choice switch
             {
-                1 => "SELECT * FROM Appointments",
-                2 => "SELECT * FROM Appointments WHERE DoctorID = @ID",
-                3 => "SELECT * FROM Appointments WHERE PatientIDNumber = @ID",
+                "View all appointments" => "SELECT * FROM Appointments",
+                "View appointments for a specific doctor" => "SELECT * FROM Appointments WHERE DoctorID = @ID",
+                "View appointments for a specific patient" => "SELECT * FROM Appointments WHERE PatientIDNumber = @ID",
                 _ => null
             };
 
@@ -182,32 +174,30 @@ namespace myClinic
 
             using SqlCommand cmd = new SqlCommand(query, connection);
 
-            if (choice == 2)
+            if (choice == "View appointments for a specific doctor")
             {
-                Console.WriteLine("Enter Doctor ID:");
+                AnsiConsole.MarkupLine("[green]Enter Doctor ID:[/]");
                 cmd.Parameters.AddWithValue("@ID", int.Parse(Console.ReadLine()));
             }
-            else if (choice == 3)
+            else if (choice == "View appointments for a specific patient")
             {
-                Console.WriteLine("Enter Patient ID Number:");
+                AnsiConsole.MarkupLine("[green]Enter Patient ID Number:[/]");
                 cmd.Parameters.AddWithValue("@ID", Console.ReadLine());
             }
 
             using SqlDataReader reader = cmd.ExecuteReader();
 
             Console.Clear();
-            Console.WriteLine("Appointments:");
+            AnsiConsole.MarkupLine("[green]Appointments:[/]");
 
             while (reader.Read())
             {
-                Console.WriteLine($"AppointmentID: {reader.GetInt32(0)}\nPatientID: {reader.GetString(1)}\nDoctorID: {reader.GetInt32(2)}\nAppointmentDate: {reader.GetDateTime(3)}\nStatus: {reader.GetString(4)}\n");
+                AnsiConsole.MarkupLine($"[green]AppointmentID: {reader.GetInt32(0)}\nPatientID: {reader.GetString(1)}\nDoctorID: {reader.GetInt32(2)}\nAppointmentDate: {reader.GetDateTime(3)}\nStatus: {reader.GetString(4)}[/]");
             }
+
             Console.WriteLine("\n\n=========================================");
-            Console.WriteLine(" Press any key to return to the main menu ");
-            Console.WriteLine("=========================================\n");
+            AnsiConsole.MarkupLine("[green]Press any key to return to the main menu[/]");
             Console.ReadKey();
-
-
         }
 
         public static void UpdateAppointment()
@@ -217,10 +207,10 @@ namespace myClinic
             {
                 connection.Open();
 
-                Console.WriteLine("Enter Appointment ID to update:");
+                AnsiConsole.MarkupLine("[green]Enter Appointment ID to update:[/]");
                 if (!int.TryParse(Console.ReadLine(), out int appointmentId))
                 {
-                    Console.WriteLine("Invalid Appointment ID.");
+                    AnsiConsole.MarkupLine("[red]Invalid Appointment ID.[/]");
                     return;
                 }
 
@@ -229,18 +219,18 @@ namespace myClinic
                 checkCmd.Parameters.AddWithValue("@AppointmentID", appointmentId);
                 if ((int)checkCmd.ExecuteScalar() == 0)
                 {
-                    Console.WriteLine("Appointment not found.");
+                    AnsiConsole.MarkupLine("[red]Appointment not found.[/]");
                     return;
                 }
 
-                Console.WriteLine("Enter new appointment date and time (YYYY-MM-DD HH:MM:SS):");
+                AnsiConsole.MarkupLine("[green]Enter new appointment date and time (YYYY-MM-DD HH:MM:SS):[/]");
                 if (!DateTime.TryParse(Console.ReadLine(), out DateTime newDate) || newDate <= DateTime.Now)
                 {
-                    Console.WriteLine("Invalid or past date entered.");
+                    AnsiConsole.MarkupLine("[red]Invalid or past date entered.[/]");
                     return;
                 }
 
-                Console.WriteLine("Enter new status (Scheduled, Completed, Cancelled):");
+                AnsiConsole.MarkupLine("[green]Enter new status (Scheduled, Completed, Cancelled):[/]");
                 string newStatus = Console.ReadLine();
 
                 string updateQuery = "UPDATE Appointments SET AppointmentDate = @NewDate, Status = @Status WHERE AppointmentID = @AppointmentID";
@@ -250,20 +240,15 @@ namespace myClinic
                 updateCmd.Parameters.AddWithValue("@AppointmentID", appointmentId);
 
                 int affected = updateCmd.ExecuteNonQuery();
-                Console.WriteLine(affected > 0 ? "Appointment updated successfully." : "No changes made.");
+                AnsiConsole.MarkupLine(affected > 0 ? "[green]Appointment updated successfully.[/]" : "[red]No changes made.[/]");
             }
             catch (Exception ex)
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"Error: {ex.Message}");
-                Console.ResetColor();
+                AnsiConsole.MarkupLine($"[red]Error: {ex.Message}[/]");
             }
             Console.WriteLine("\n\n=========================================");
-            Console.WriteLine(" Press any key to return to the main menu ");
-            Console.WriteLine("=========================================\n");
+            AnsiConsole.MarkupLine("[green]Press any key to return to the main menu[/]");
             Console.ReadKey();
-
-
         }
     }
 }
